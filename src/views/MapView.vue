@@ -1,5 +1,10 @@
 <template>
-  <div id="map"></div>
+  <div class="map-wrapper">
+    <div id="map"></div>
+    <div class="map-panel">
+      <Filters />
+    </div>
+  </div>
 </template>
 
 <script setup>
@@ -63,23 +68,6 @@ onMounted(async () => {
     }
   }).addTo(map)
 
-  // Filter panel
-  const panel = L.control({ position: 'topright' })
-  panel.onAdd = function () {
-    const div = L.DomUtil.create('div', 'info')
-
-    const filtersContainer = document.createElement('div')
-    div.appendChild(filtersContainer)
-
-    render(h(Filters), filtersContainer)
-
-    L.DomEvent.disableClickPropagation(div)
-    L.DomEvent.disableScrollPropagation(div)
-
-    return div
-  }
-  panel.addTo(map)
-
   setTimeout(() => {
     map.invalidateSize()
   }, 100)
@@ -98,10 +86,8 @@ html, body, #app {
 }
 
 .info {
-  background: rgba(255, 255, 255, 0.92);
   padding: 12px;
   border-radius: 8px;
-  box-shadow: 0 0 15px rgba(0,0,0,0.18);
   min-width: 320px;
 }
 
@@ -114,5 +100,12 @@ html, body, #app {
   font-weight: 600;
   color: #333;
   pointer-events: none;
+}
+
+.map-panel {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  z-index: 1000;
 }
 </style>
