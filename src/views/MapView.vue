@@ -1,6 +1,12 @@
 <template>
   <div class="map-wrapper">
     <div id="map"></div>
+    <div class="map-top-center">
+      <v-btn-toggle rounded="small" mandatory border v-model="store.company">
+        <v-btn value="ssab">SSAB</v-btn>
+        <v-btn value="stegra">Stegra</v-btn>
+      </v-btn-toggle>
+    </div>
     <div class="map-panel">
       <Filters />
     </div>
@@ -8,12 +14,18 @@
 </template>
 
 <script setup>
-import { onMounted, nextTick, h, render } from 'vue'
+import { onMounted, nextTick, ref, watch } from 'vue'
 import * as L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import Filters from '@/components/Filters.vue'
+import { useStore } from '@/stores/company'
+
+
+const store = useStore()
+const company = ref(store.company || 'ssab')
 
 onMounted(async () => {
+
   await nextTick()
 
   const map = L.map('map', {
@@ -72,6 +84,14 @@ onMounted(async () => {
     map.invalidateSize()
   }, 100)
 })
+
+watch(
+  () => store.company,
+  (val) => {
+    console.log('Company changed:', val)
+    // update map here
+  }
+)
 </script>
 
 <style>
@@ -80,8 +100,13 @@ html, body, #app {
   height: 100%;
 }
 
-#map {
+.map-wrapper {
+  position: relative;
   height: 100vh;
+}
+
+#map {
+  height: 100%;
   width: 100%;
 }
 
@@ -107,5 +132,13 @@ html, body, #app {
   top: 20px;
   right: 20px;
   z-index: 1000;
+}
+
+.map-top-center {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2000; 
 }
 </style>

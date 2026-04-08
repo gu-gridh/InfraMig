@@ -64,4 +64,8 @@ const toggleExpand = () => {
 .filter-group {
   margin-bottom: 10px;
 }
+
+.v-field__field {
+  padding-left: 5px;
+}
 </style>
