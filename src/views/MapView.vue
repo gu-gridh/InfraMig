@@ -2,7 +2,7 @@
   <div class="map-wrapper">
     <div id="map"></div>
     <div class="map-top-center">
-      <v-btn-toggle rounded="small" mandatory border v-model="store.company">
+      <v-btn-toggle rounded="small" mandatory border v-model="store.company" class="toggle-group" color="primary">
         <v-btn value="ssab">SSAB</v-btn>
         <v-btn value="stegra">Stegra</v-btn>
       </v-btn-toggle>
@@ -31,7 +31,7 @@ onMounted(async () => {
   const map = L.map('map', {
     zoomSnap: 0.5,
     worldCopyJump: true
-  }).setView([20, 10], 2.5)
+  }).setView([20, 10], 3)
 
   // Quiet basemap
   L.tileLayer('https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png', {
@@ -141,4 +141,9 @@ html, body, #app {
   transform: translateX(-50%);
   z-index: 2000; 
 }
+
+.toggle-group .v-btn__content {
+  font-weight: 800;
+}
+
 </style>
