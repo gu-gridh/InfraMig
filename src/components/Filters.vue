@@ -17,6 +17,18 @@
 
       <div class="filter-group">
         <v-select
+          v-model="selectedBranch"
+          :items="branches"
+          label="Select branch"
+          clearable
+          variant="outlined"
+          density="compact"
+          color="primary"
+        />
+      </div>
+
+      <div class="filter-group">
+        <v-select
           v-model="selectedYear"
           :items="years"
           label="Select year"
@@ -64,10 +76,12 @@ import { ref } from 'vue'
 import StatisticsTabs from '@/views/StatisticsTabs.vue'
 
 const countries = ref(['USA', 'Canada', 'Mexico'])
+const branches = ref(['Branch 1', 'Branch 2', 'Branch 3'])
 const years = ref([2023, 2024, 2025, 2026])
 
 const selectedCountry = ref(null)
 const selectedYear = ref(null)
+const selectedBranch = ref(null)
 const expanded = ref(false)
 
 const toggleExpand = () => {

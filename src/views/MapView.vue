@@ -19,6 +19,7 @@ import * as L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import Filters from '@/components/Filters.vue'
 import { useStore } from '@/stores/company'
+import { no } from 'vuetify/locale'
 
 
 const store = useStore()
@@ -31,15 +32,22 @@ onMounted(async () => {
   await nextTick()
 
   const map = L.map('map', {
-    zoomSnap: 0.5,
-    worldCopyJump: true
-  }).setView([20, 10], 3)
+  zoomSnap: 0.5,
+  worldCopyJump: true,
+  minZoom: 2,
+  maxBounds: [
+    [-90, -180],
+    [90, 180]
+  ],
+  maxBoundsViscosity: 1.0
+}).setView([20, 10], 3)
 
   // Quiet basemap
   L.tileLayer('https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png', {
     attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
     subdomains: 'abcd',
-    maxZoom: 20
+    maxZoom: 20,
+    noWrap: true
   }).addTo(map)
 
   // Country polygons with English names
@@ -100,8 +108,8 @@ onMounted(async () => {
 watch(
   () => store.company,
   (val) => {
-    console.log('Company changed:', val)
-    // update map here
+    if (!point) return
+    // update factory location
     point.setLatLng(val === 'ssab' ? [65.56347, 22.19981] : [65.805389, 21.75914])
   }
 )
