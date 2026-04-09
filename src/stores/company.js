@@ -4,8 +4,6 @@ import { defineStore } from 'pinia'
 export const useStore = defineStore('company', () => {
   // state should be either 'ssab' or 'stegra'
     const company = ref('ssab')
-    const isSsab = computed(() => company.value === 'ssab')
-    const isStegra = computed(() => company.value === 'stegra')
 
     function setCompany(newCompany) {
         if (newCompany === 'ssab' || newCompany === 'stegra') {
@@ -23,7 +21,7 @@ export const useStore = defineStore('company', () => {
         country.value = newCountry
     }
 
-    return { company, isSsab, isStegra, setCompany, country, isAll, setCountry }
+    return { company, setCompany, country, isAll, setCountry }
 
 
 })

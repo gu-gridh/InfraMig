@@ -7,6 +7,8 @@
         <v-select
           v-model="selectedCountry"
           :items="countries"
+          item-title="Countries_eng"
+          item-value="Country_code"
           label="Select country"
           clearable
           variant="outlined"
@@ -72,10 +74,11 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import StatisticsTabs from '@/views/StatisticsTabs.vue'
 
-const countries = ref(['USA', 'Canada', 'Mexico'])
+
+const countries = ref([''])
 const branches = ref(['Branch 1', 'Branch 2', 'Branch 3'])
 const years = ref([2023, 2024, 2025, 2026])
 
@@ -87,6 +90,26 @@ const expanded = ref(false)
 const toggleExpand = () => {
   expanded.value = !expanded.value
 }
+
+onMounted(() => {
+  //fetch json from public folder
+  fetch('/json/countries.json')
+    .then((res) => res.json())
+    .then((data) => {
+      // extract country names from json and sort alphabetically
+      countries.value = data
+        .map((d) => ({
+          Country_code: d.Country_code,
+          Countries_eng: d.Countries_eng
+        }))
+        .sort((a, b) =>
+          a.Countries_eng.localeCompare(b.Countries_eng, undefined, {
+            sensitivity: 'base'
+          })
+        )
+    })
+
+})
 
 </script>
 
