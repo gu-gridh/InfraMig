@@ -23,6 +23,17 @@ const vuetify = createVuetify({
       mdi,
     },
   },
+  theme: {
+    defaultTheme: 'light',
+    themes: {
+      light: {
+        colors: {
+          primary: '#14B8A6',   
+          secondary: '#64748B',
+        },
+      },
+    },
+  },
 })
 
 const app = createApp(App)

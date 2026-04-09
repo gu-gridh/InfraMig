@@ -1,6 +1,12 @@
 <template>
   <div class="map-wrapper">
     <div id="map"></div>
+    <div class="map-top-center">
+      <v-btn-toggle rounded="small" mandatory border v-model="store.company" class="toggle-group" color="primary">
+        <v-btn value="ssab">SSAB</v-btn>
+        <v-btn value="stegra">Stegra</v-btn>
+      </v-btn-toggle>
+    </div>
     <div class="map-panel">
       <Filters />
     </div>
@@ -8,18 +14,26 @@
 </template>
 
 <script setup>
-import { onMounted, nextTick, h, render } from 'vue'
+import { onMounted, nextTick, ref, watch } from 'vue'
 import * as L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import Filters from '@/components/Filters.vue'
+import { useStore } from '@/stores/company'
+
+
+const store = useStore()
+const company = ref(store.company || 'ssab')
+
+let point;
 
 onMounted(async () => {
+
   await nextTick()
 
   const map = L.map('map', {
     zoomSnap: 0.5,
     worldCopyJump: true
-  }).setView([20, 10], 2.5)
+  }).setView([20, 10], 3)
 
   // Quiet basemap
   L.tileLayer('https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png', {
@@ -68,10 +82,29 @@ onMounted(async () => {
     }
   }).addTo(map)
 
+ 
+  point = L.circleMarker(company.value === 'ssab' ? [65.56347, 22.19981] : [65.805389, 21.75914], {
+    radius: 6,
+    fillColor: '#14B8A6',
+    color: '#14B8A6',
+    weight: 2,
+    opacity: 1,
+    fillOpacity: 0.9
+  }).addTo(map)
+
   setTimeout(() => {
     map.invalidateSize()
   }, 100)
 })
+
+watch(
+  () => store.company,
+  (val) => {
+    console.log('Company changed:', val)
+    // update map here
+    point.setLatLng(val === 'ssab' ? [65.56347, 22.19981] : [65.805389, 21.75914])
+  }
+)
 </script>
 
 <style>
@@ -80,8 +113,13 @@ html, body, #app {
   height: 100%;
 }
 
-#map {
+.map-wrapper {
+  position: relative;
   height: 100vh;
+}
+
+#map {
+  height: 100%;
   width: 100%;
 }
 
@@ -108,4 +146,17 @@ html, body, #app {
   right: 20px;
   z-index: 1000;
 }
+
+.map-top-center {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2000; 
+}
+
+.toggle-group .v-btn__content {
+  font-weight: 800;
+}
+
 </style>
