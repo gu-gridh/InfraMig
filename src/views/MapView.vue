@@ -24,6 +24,8 @@ import { useStore } from '@/stores/company'
 const store = useStore()
 const company = ref(store.company || 'ssab')
 
+let point;
+
 onMounted(async () => {
 
   await nextTick()
@@ -80,6 +82,16 @@ onMounted(async () => {
     }
   }).addTo(map)
 
+ 
+  point = L.circleMarker(company.value === 'ssab' ? [65.56347, 22.19981] : [65.805389, 21.75914], {
+    radius: 6,
+    fillColor: '#14B8A6',
+    color: '#14B8A6',
+    weight: 2,
+    opacity: 1,
+    fillOpacity: 0.9
+  }).addTo(map)
+
   setTimeout(() => {
     map.invalidateSize()
   }, 100)
@@ -90,6 +102,7 @@ watch(
   (val) => {
     console.log('Company changed:', val)
     // update map here
+    point.setLatLng(val === 'ssab' ? [65.56347, 22.19981] : [65.805389, 21.75914])
   }
 )
 </script>

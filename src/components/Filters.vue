@@ -53,7 +53,7 @@
       </div>
 
       <div class="statistics" v-if="expanded">
-        <Statistics />
+        <StatisticsTabs />
       </div>
     </div>
   </div>
@@ -61,7 +61,7 @@
 
 <script setup>
 import { ref } from 'vue'
-import Statistics from './Statistics.vue'
+import StatisticsTabs from '@/views/StatisticsTabs.vue'
 
 const countries = ref(['USA', 'Canada', 'Mexico'])
 const years = ref([2023, 2024, 2025, 2026])
