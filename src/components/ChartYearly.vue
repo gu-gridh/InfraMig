@@ -1,6 +1,6 @@
 <template>
   <div class="statistics">
-    <h3>Workforce per month & year</h3>
+    <h3>Total foreign workers at <span>{{ store.company.charAt(0).toUpperCase() + store.company.slice(1)}}</span></h3>
     <div ref="chartEl" class="chart"></div>
   </div>
 </template>
@@ -8,6 +8,11 @@
 <script setup>
 import { ref, onMounted, onUnmounted, nextTick } from 'vue'
 import * as echarts from 'echarts'
+import { useStore } from '@/stores/company'
+
+
+const store = useStore()
+
 
 const chartEl = ref(null)
 let myChart = null

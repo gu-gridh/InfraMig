@@ -3,7 +3,7 @@
         <v-sheet elevation="0">
             <v-tabs v-model="tab" color="primary">
                 <v-tab value="one">Workforce</v-tab>
-                <v-tab value="two">Item Two</v-tab>
+                <v-tab value="two">Duration</v-tab>
                 <v-tab value="three">Item Three</v-tab>
             </v-tabs>
 
@@ -14,7 +14,7 @@
                 <v-sheet class="pa-5"><ChartYearly /></v-sheet>
                 </v-tabs-window-item>
                 <v-tabs-window-item value="two">
-                <v-sheet class="pa-5">Two</v-sheet>
+                <v-sheet class="pa-5"><ChartDuration /></v-sheet>
                 </v-tabs-window-item>
                 <v-tabs-window-item value="three">
                 <v-sheet class="pa-5">Three</v-sheet>
@@ -27,6 +27,7 @@
 <script setup>
 import { ref } from 'vue'
 import ChartYearly from '@/components/ChartYearly.vue';
+import ChartDuration from '@/components/ChartDuration.vue';
 
 const tab = ref('one')
 </script>
