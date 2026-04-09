@@ -26,15 +26,36 @@
         />
       </div>
     </v-form>
+
     <div class="expand">
-        <v-icon v-if="!expanded" size="32" color="#888" @click="toggleExpand">mdi-chevron-double-down</v-icon>
-        <v-icon v-else size="32" color="#888" @click="toggleExpand">mdi-chevron-double-up</v-icon>
-        <v-icon size="32" color="#888">mdi-chart-bar</v-icon>
-        <div class="statistics" v-if="expanded">
-          <p>Additional statistics and charts would go here.</p>   
-          <Statistics/> 
-        </div>
-    </div> 
+      <div class="expand-header">
+        <v-icon size="28" color="#888" class="left">mdi-chart-bar</v-icon>
+
+        <v-icon
+          v-if="!expanded"
+          size="32"
+          color="primary"
+          @click="toggleExpand"
+          class="right"
+        >
+          mdi-chevron-double-down
+        </v-icon>
+
+        <v-icon
+          v-else
+          size="32"
+          color="primary"
+          @click="toggleExpand"
+          class="right"
+        >
+          mdi-chevron-double-up
+        </v-icon>
+      </div>
+
+      <div class="statistics" v-if="expanded">
+        <Statistics />
+      </div>
+    </div>
   </div>
 </template>
 
@@ -72,6 +93,24 @@ const toggleExpand = () => {
 
 .v-field--center-affix .v-label.v-field-label {
   padding-left: 5px !important;
+}
+
+.expand {
+  margin-top: 8px;
+}
+
+.expand-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.right {
+  cursor: pointer;
+}
+
+.statistics {
+  margin-top: 10px;
 }
 
 </style>
