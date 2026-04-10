@@ -7,8 +7,8 @@
         <v-select
           v-model="selectedCountry"
           :items="countries"
-          item-title="Countries_eng"
-          item-value="Country_code"
+          item-title="countries_eng"
+          item-value="country_code"
           label="Select country"
           clearable
           variant="outlined"
@@ -74,7 +74,7 @@
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue'
+import { onMounted, ref, watch } from 'vue'
 import StatisticsTabs from '@/views/StatisticsTabs.vue'
 
 
@@ -86,6 +86,8 @@ const selectedCountry = ref(null)
 const selectedYear = ref(null)
 const selectedBranch = ref(null)
 const expanded = ref(false)
+
+const store = useStore()
 
 const toggleExpand = () => {
   expanded.value = !expanded.value
@@ -99,17 +101,28 @@ onMounted(() => {
       // extract country names from json and sort alphabetically
       countries.value = data
         .map((d) => ({
-          Country_code: d.Country_code,
-          Countries_eng: d.Countries_eng
+          country_code: d.country_code,
+          countries_eng: d.countries_eng
         }))
         .sort((a, b) =>
-          a.Countries_eng.localeCompare(b.Countries_eng, undefined, {
+          a.countries_eng.localeCompare(b.countries_eng, undefined, {
             sensitivity: 'base'
           })
         )
     })
 
 })
+
+watch(
+  [selectedCountry, selectedYear, selectedBranch],
+  ([country, year, branch]) => {
+    console.log('Filters changed:', { country, year, branch })
+    store.selectedCountry = country
+    // store.selectedYear = year
+    // store.selectedBranch = branch
+    // update map and charts based on filters here
+  }
+)
 
 </script>
 
