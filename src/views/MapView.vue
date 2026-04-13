@@ -19,7 +19,6 @@ import * as L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import Filters from '@/components/Filters.vue'
 import { useStore } from '@/stores/company'
-import { no } from 'vuetify/locale'
 
 
 const store = useStore()

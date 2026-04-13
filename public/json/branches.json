@@ -1,0 +1,90 @@
+[
+  {
+    "sni_letter":"A",
+    "english_label":"Agriculture, Forestry And Fishing"
+  },
+  {
+    "sni_letter":"B",
+    "english_label":"Mining And Quarrying"
+  },
+  {
+    "sni_letter":"C",
+    "english_label":"Manufacturing"
+  },
+  {
+    "sni_letter":"D",
+    "english_label":"Electricity, Gas, Steam And Air Conditioning Supply"
+  },
+  {
+    "sni_letter":"E",
+    "english_label":"Water Supply; Sewerage, Waste Management And Remediation Activities"
+  },
+  {
+    "sni_letter":"F",
+    "english_label":"Construction"
+  },
+  {
+    "sni_letter":"G",
+    "english_label":"Wholesale And Retail Trade"
+  },
+  {
+    "sni_letter":"H",
+    "english_label":"Transportation And Storage"
+  },
+  {
+    "sni_letter":"I",
+    "english_label":"Accommodation And Food Service Activities"
+  },
+  {
+    "sni_letter":"J",
+    "english_label":"Publishing, Broadcasting, And Content Production And Distribution Activities"
+  },
+  {
+    "sni_letter":"K",
+    "english_label":"Telecommunication, Computer Programming, Consulting, Computing Infrastructure And Other Information Service Activities"
+  },
+  {
+    "sni_letter":"L",
+    "english_label":"Financial And Insurance Activities"
+  },
+  {
+    "sni_letter":"M",
+    "english_label":"Real Estate Activities"
+  },
+  {
+    "sni_letter":"N",
+    "english_label":"Professional, Scientific And Technical Activities"
+  },
+  {
+    "sni_letter":"O",
+    "english_label":"Administrative And Support Service Activities"
+  },
+  {
+    "sni_letter":"P",
+    "english_label":"Public Administration And Defence; Compulsory Social Security"
+  },
+  {
+    "sni_letter":"Q",
+    "english_label":"Education"
+  },
+  {
+    "sni_letter":"R",
+    "english_label":"Human Health And Social Work Activities"
+  },
+  {
+    "sni_letter":"S",
+    "english_label":"Arts, Sports And Recreation"
+  },
+  {
+    "sni_letter":"T",
+    "english_label":"Other Service Activities"
+  },
+  {
+    "sni_letter":"U",
+    "english_label":"Activities Of Households As Employers And Undifferentiated Goods- And Service-Producing Activities Of Households For Own Use"
+  },
+  {
+    "sni_letter":"V",
+    "english_label":"Activities Of Extraterritorial Organisations And Bodies"
+  }
+]
