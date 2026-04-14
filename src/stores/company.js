@@ -11,33 +11,33 @@ export const useStore = defineStore('company', () => {
         } 
     }
 
-    //set filter state to 'all' by default
-    const country = ref('all')
+    //set filter state to null by default
+    const country = ref()
 
     function setCountry(newCountry) {
         country.value = newCountry
     }
     
     function resetCountry() {
-        country.value = 'all'
+        country.value = null
     }
 
-    const branch = ref('all')
+    const branch = ref()
     function setBranch(newBranch) {
         branch.value = newBranch
     }
 
     function resetBranch() {
-        branch.value = 'all'
+        branch.value = null
     }
 
-    const year = ref('all')
+    const year = ref(null)
     function setYear(newYear) {
         year.value = newYear
     }
 
     function resetYear() {
-        year.value = 'all'
+        year.value = null
     }
 
 

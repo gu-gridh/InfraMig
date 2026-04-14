@@ -4,6 +4,7 @@
 
     <v-form>
       <div class="filter-group">
+        <!-- if item-title is 'all' dont show text-->
         <v-select
           v-model="selectedCountry"
           :items="countries"
