@@ -134,10 +134,42 @@ watch(
   [selectedCountry, selectedYear, selectedBranch],
   ([country, year, branch]) => {
     console.log('Filters changed:', { country, year, branch })
-    store.selectedCountry = country
-    // store.selectedYear = year
-    // store.selectedBranch = branch
+    store.country = country
+    store.year = year
+    store.setBranch(branch)
     // update map and charts based on filters here
+  }
+)
+
+watch(
+  [selectedCountry, selectedYear, selectedBranch],
+  ([country, year, branch]) => {
+    if (country == null) {
+      store.resetCountry()
+      selectedCountry.value = store.country
+    } else {
+      store.country = country
+    }
+
+    if (year == null) {
+      store.resetYear()
+      selectedYear.value = store.year
+    } else {
+      store.year = year
+    }
+
+    if (branch == null) {
+      store.resetBranch()
+      selectedBranch.value = store.branch
+    } else {
+      store.setBranch(branch)
+    }
+
+    console.log('Filters changed:', {
+      country: selectedCountry.value,
+      year: selectedYear.value,
+      branch: selectedBranch.value
+    })
   }
 )
 
