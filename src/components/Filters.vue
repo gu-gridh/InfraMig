@@ -90,13 +90,21 @@ const selectedYear = ref(null)
 const selectedBranch = ref(null)
 const expanded = ref(false)
 
+const filtersEl = ref(null)
+
 const store = useStore()
 
 const toggleExpand = () => {
   expanded.value = !expanded.value
 }
 
-onMounted(() => {
+onMounted(async () => {
+  await nextTick()
+  //scrollable filters panel, disable map interactions when hovering over it
+  if (filtersEl.value) {
+    L.DomEvent.disableScrollPropagation(filtersEl.value)
+    L.DomEvent.disableClickPropagation(filtersEl.value)
+  }
   //fetch json from public folder
   fetch('/json/countries.json')
     .then((res) => res.json())
@@ -185,6 +193,8 @@ watch(
   width: 400px;
   max-width: 100%;
   border: 2px solid #14B8A6;
+  max-height: 90vh;
+  overflow-y: auto;
 }
 
 .filter-group {
