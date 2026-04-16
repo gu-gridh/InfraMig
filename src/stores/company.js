@@ -8,20 +8,40 @@ export const useStore = defineStore('company', () => {
     function setCompany(newCompany) {
         if (newCompany === 'ssab' || newCompany === 'stegra') {
             company.value = newCompany
-        } else {
-            console.warn('Invalid company. Use "ssab" or "stegra".')
-        }
+        } 
     }
 
-    //set country state or default 'all'
-    const country = ref('all')
-    const isAll = computed(() => country.value === 'all')
+    //set filter state to null by default
+    const country = ref()
 
     function setCountry(newCountry) {
         country.value = newCountry
     }
+    
+    function resetCountry() {
+        country.value = null
+    }
 
-    return { company, setCompany, country, isAll, setCountry }
+    const branch = ref()
+    function setBranch(newBranch) {
+        branch.value = newBranch
+    }
+
+    function resetBranch() {
+        branch.value = null
+    }
+
+    const year = ref(null)
+    function setYear(newYear) {
+        year.value = newYear
+    }
+
+    function resetYear() {
+        year.value = null
+    }
+
+
+    return { company, setCompany, country, setCountry, resetCountry, branch, setBranch, resetBranch, year, setYear, resetYear }
 
 
 })

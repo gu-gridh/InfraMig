@@ -19,7 +19,6 @@ import * as L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import Filters from '@/components/Filters.vue'
 import { useStore } from '@/stores/company'
-import { no } from 'vuetify/locale'
 
 
 const store = useStore()
@@ -32,17 +31,29 @@ onMounted(async () => {
   await nextTick()
 
   const map = L.map('map', {
-  zoomSnap: 0.5,
-  worldCopyJump: true,
-  minZoom: 2,
-  maxBounds: [
-    [-90, -180],
-    [90, 180]
-  ],
-  maxBoundsViscosity: 1.0
-}).setView([20, 10], 3)
+    zoomSnap: 0.5,
+    worldCopyJump: true,
+    minZoom: 2,
+    maxBounds: [
+      [-90, -180],
+      [90, 180]
+    ],
+    maxBoundsViscosity: 1.0
+  }).setView([30, 3], 3)
 
-  // Quiet basemap
+  // Create panes with explicit z-index
+  
+  // Polygons
+  map.createPane('countriesPane');
+  map.getPane('countriesPane').style.zIndex = 200;
+  // Country labels
+  map.createPane('countryLabelsPane');
+  map.getPane('countryLabelsPane').style.zIndex = 300;
+  // Points
+  map.createPane('pointsPane');
+  map.getPane('pointsPane').style.zIndex = 400;
+
+  //basemap
   L.tileLayer('https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png', {
     attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
     subdomains: 'abcd',
@@ -50,48 +61,71 @@ onMounted(async () => {
     noWrap: true
   }).addTo(map)
 
-  // Country polygons with English names
-  const res = await fetch('/geojson/countries.geojson')
-  const countries = await res.json()
+  //countries avaliable in the data below
+  const presentCountries = new Set([
+  "FIN","NLD","GBR","USA","CZE","LTU","DEU","POL","ZAF","HKG",
+  "ESP","ROU","IRL","LVA","ITA","CYP","SVK","EST","DNK","IND",
+  "NOR","SGP","CHE","BEL","CAN","HUN","PRT","FRA","HRV","SVN",
+  "AUT","LUX"
+]);
 
-  const countryLayer = L.geoJSON(countries, {
-    style: () => ({
-      color: '#888',
-      weight: 1,
-      fillColor: '#ffffff',
-      fillOpacity: 0.08
-    }),
-    onEachFeature: (feature, layer) => {
-      const name =
-        feature.properties.name_en ||
-        feature.properties.ADMIN ||
-        feature.properties.NAME_EN ||
-        feature.properties.name ||
-        'Unknown'
+const res = await fetch('/geojson/countries.geojson');
+const countries = await res.json();
 
-      layer.bindTooltip(name, {
-        permanent: true,
-        direction: 'center',
-        className: 'country-label'
+const countryLayer = L.geoJSON(countries, {
+  pane: 'countriesPane',
+  style: () => ({
+    color: '#888',
+    weight: 1,
+    fillColor: '#ffffff',
+    fillOpacity: 0.08
+  }),
+
+  onEachFeature: (feature, layer) => {
+    const props = feature.properties || {};
+
+    const countryCode =
+      props.ADM0_A3_US ||
+      props.ISO_A3 ||
+      props.ADM0_A3 ||
+      props.gu_a3 ||
+      props.GU_A3;
+
+    const name =
+      props.name_en ||
+      props.ADMIN ||
+      props.NAME_EN ||
+      props.name ||
+      'Unknown';
+
+    const center = layer.getBounds().getCenter();
+
+    if (presentCountries.has(countryCode)) {
+  // Special case for France
+  if (countryCode === 'FRA') {
+    L.marker([46.5, 2.5], {
+      pane: 'countryLabelsPane',
+      interactive: false,
+      icon: L.divIcon({
+        className: 'country-label-marker',
+        html: `<div class="country-label">France</div>`
       })
-
-      layer.on({
-        mouseover: () => {
-          layer.setStyle({
-            weight: 2,
-            color: '#444',
-            fillOpacity: 0.15
-          })
-        },
-        mouseout: () => {
-          countryLayer.resetStyle(layer)
-        }
-      })
-    }
-  }).addTo(map)
+    }).addTo(map);
+  } else {
+    layer.bindTooltip(name, {
+      permanent: true,
+      direction: 'center',
+      className: 'country-label',
+      pane: 'countryLabelsPane'
+    });
+  }
+}
+  }
+}).addTo(map);
 
  
   point = L.circleMarker(company.value === 'ssab' ? [65.56347, 22.19981] : [65.805389, 21.75914], {
+    pane: 'pointsPane',
     radius: 6,
     fillColor: '#14B8A6',
     color: '#14B8A6',
@@ -103,7 +137,67 @@ onMounted(async () => {
   setTimeout(() => {
     map.invalidateSize()
   }, 100)
+
+  //add geojson point layer
+  const pointRes = await fetch('/geojson/stegra/stegra.geojson');
+const pointsData = await pointRes.json();
+
+// keep only one feature per country
+const seenCountries = new Set();
+const uniqueCountryFeatures = pointsData.features.filter((feature) => {
+  const country = feature.properties?.country_en;
+  if (!country || seenCountries.has(country)) return false;
+  seenCountries.add(country);
+  return true;
+});
+
+// find max country_count
+const counts = uniqueCountryFeatures.map(f => Number(f.properties?.country_count) || 1);
+const maxCount = Math.max(...counts, 1);
+
+// radius scaling between minRadius and maxRadius
+function getRadius(count) {
+  const n = Number(count) || 1;
+  const minRadius = 4;
+  const maxRadius = 14;
+
+  return minRadius + (Math.sqrt(n) / Math.sqrt(maxCount)) * (maxRadius - minRadius);
+}
+
+L.geoJSON(
+  {
+    ...pointsData,
+    features: uniqueCountryFeatures
+  },
+  {
+    pane: 'pointsPane',
+    pointToLayer: (feature, latlng) => {
+      const count = feature.properties?.country_count ?? 1;
+
+      return L.circleMarker(latlng, {
+        radius: getRadius(count),
+        fillColor: '#2563EB',
+        color: '#ffffff',
+        weight: 1,
+        opacity: 1,
+        fillOpacity: 0.65
+      });
+    },
+    onEachFeature: (feature, layer) => {
+      const props = feature.properties || {};
+      const country = props.country_en || 'Unknown country';
+      const count = props.country_count || 1;
+
+      layer.bindPopup(`
+        <strong>${country}</strong><br>
+        Count: ${count}
+      `);
+    }
+  }
+).addTo(map);
 })
+
+
 
 watch(
   () => store.company,
@@ -138,12 +232,12 @@ html, body, #app {
 }
 
 .country-label {
-  background: rgba(255,255,255,0.7);
+  background: rgba(255,255,255,0.0);
   border: none;
   box-shadow: none;
   padding: 2px 4px;
-  font-size: 11px;
-  font-weight: 600;
+  font-size: 8px;
+  font-weight: 400;
   color: #333;
   pointer-events: none;
 }
