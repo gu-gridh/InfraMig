@@ -39,7 +39,7 @@ onMounted(async () => {
       [90, 180]
     ],
     maxBoundsViscosity: 1.0
-  }).setView([20, 10], 3)
+  }).setView([30, 3], 3)
 
   // Create panes with explicit z-index
   
@@ -53,7 +53,7 @@ onMounted(async () => {
   map.createPane('pointsPane');
   map.getPane('pointsPane').style.zIndex = 400;
 
-  // Quiet basemap
+  //basemap
   L.tileLayer('https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png', {
     attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
     subdomains: 'abcd',
@@ -120,19 +120,6 @@ const countryLayer = L.geoJSON(countries, {
     });
   }
 }
-
-    layer.on({
-      mouseover: () => {
-        layer.setStyle({
-          weight: 2,
-          color: '#444',
-          fillOpacity: 0.15
-        });
-      },
-      mouseout: () => {
-        countryLayer.resetStyle(layer);
-      }
-    });
   }
 }).addTo(map);
 
@@ -153,23 +140,61 @@ const countryLayer = L.geoJSON(countries, {
 
   //add geojson point layer
   const pointRes = await fetch('/geojson/stegra/stegra.geojson');
-  const pointsData = await pointRes.json(); 
-  L.geoJSON(pointsData, {
+const pointsData = await pointRes.json();
+
+// keep only one feature per country
+const seenCountries = new Set();
+const uniqueCountryFeatures = pointsData.features.filter((feature) => {
+  const country = feature.properties?.country_en;
+  if (!country || seenCountries.has(country)) return false;
+  seenCountries.add(country);
+  return true;
+});
+
+// find max country_count
+const counts = uniqueCountryFeatures.map(f => Number(f.properties?.country_count) || 1);
+const maxCount = Math.max(...counts, 1);
+
+// radius scaling between minRadius and maxRadius
+function getRadius(count) {
+  const n = Number(count) || 1;
+  const minRadius = 4;
+  const maxRadius = 14;
+
+  return minRadius + (Math.sqrt(n) / Math.sqrt(maxCount)) * (maxRadius - minRadius);
+}
+
+L.geoJSON(
+  {
+    ...pointsData,
+    features: uniqueCountryFeatures
+  },
+  {
     pane: 'pointsPane',
     pointToLayer: (feature, latlng) => {
+      const count = feature.properties?.country_count ?? 1;
+
       return L.circleMarker(latlng, {
-        radius: 4,
+        radius: getRadius(count),
         fillColor: '#2563EB',
-        color: '#2563EB',
+        color: '#ffffff',
         weight: 1,
         opacity: 1,
-        fillOpacity: 0.8
+        fillOpacity: 0.65
       });
     },
     onEachFeature: (feature, layer) => {
       const props = feature.properties || {};
+      const country = props.country_en || 'Unknown country';
+      const count = props.country_count || 1;
+
+      layer.bindPopup(`
+        <strong>${country}</strong><br>
+        Count: ${count}
+      `);
     }
-  }).addTo(map)
+  }
+).addTo(map);
 })
 
 
