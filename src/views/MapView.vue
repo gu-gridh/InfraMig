@@ -150,7 +150,29 @@ const countryLayer = L.geoJSON(countries, {
   setTimeout(() => {
     map.invalidateSize()
   }, 100)
+
+  //add geojson point layer
+  const pointRes = await fetch('/geojson/stegra/stegra.geojson');
+  const pointsData = await pointRes.json(); 
+  L.geoJSON(pointsData, {
+    pane: 'pointsPane',
+    pointToLayer: (feature, latlng) => {
+      return L.circleMarker(latlng, {
+        radius: 4,
+        fillColor: '#2563EB',
+        color: '#2563EB',
+        weight: 1,
+        opacity: 1,
+        fillOpacity: 0.8
+      });
+    },
+    onEachFeature: (feature, layer) => {
+      const props = feature.properties || {};
+    }
+  }).addTo(map)
 })
+
+
 
 watch(
   () => store.company,
