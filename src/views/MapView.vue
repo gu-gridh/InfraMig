@@ -33,7 +33,7 @@ onMounted(async () => {
   const map = L.map('map', {
     zoomSnap: 0.5,
     worldCopyJump: true,
-    minZoom: 2,
+    minZoom: 1,
     maxBounds: [
       [-90, -180],
       [90, 180]
