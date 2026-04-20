@@ -14,23 +14,114 @@
 </template>
 
 <script setup>
-import { onMounted, nextTick, ref, watch } from 'vue'
+import { onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
 import * as L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import Filters from '@/components/Filters.vue'
 import { useStore } from '@/stores/company'
 
-
 const store = useStore()
-const company = ref(store.company || 'ssab')
 
-let point;
+let map = null
+let point = null
+let companyGeoJsonLayer = null
+let stopCompanyWatcher = null
+
+const COMPANY_CONFIG = {
+  ssab: {
+    file: '/geojson/ssab/ssab.geojson',
+    factoryLatLng: [65.56347, 22.19981]
+  },
+  stegra: {
+    file: '/geojson/stegra/stegra.geojson',
+    factoryLatLng: [65.805389, 21.75914]
+  }
+}
+
+function getCompanyConfig(company) {
+  return COMPANY_CONFIG[company] ?? COMPANY_CONFIG.ssab
+}
+
+function updateFactoryPoint(company) {
+  if (!point) return
+  point.setLatLng(getCompanyConfig(company).factoryLatLng)
+}
+
+function buildCompanyLayer(pointsData) {
+  const seenCountries = new Set()
+
+  const uniqueCountryFeatures = (pointsData.features ?? []).filter((feature) => {
+    const country = feature.properties?.country_en
+    if (!country || seenCountries.has(country)) return false
+    seenCountries.add(country)
+    return true
+  })
+
+  const counts = uniqueCountryFeatures.map(
+    (f) => Number(f.properties?.country_count) || 1
+  )
+  const maxCount = Math.max(...counts, 1)
+
+  function getRadius(count) {
+    const n = Number(count) || 1
+    const minRadius = 4
+    const maxRadius = 14
+
+    return minRadius + (Math.sqrt(n) / Math.sqrt(maxCount)) * (maxRadius - minRadius)
+  }
+
+  return L.geoJSON(
+    {
+      ...pointsData,
+      features: uniqueCountryFeatures
+    },
+    {
+      pane: 'pointsPane',
+      pointToLayer: (feature, latlng) => {
+        const count = feature.properties?.country_count ?? 1
+
+        return L.circleMarker(latlng, {
+          radius: getRadius(count),
+          fillColor: '#2563EB',
+          color: '#ffffff',
+          weight: 1,
+          opacity: 1,
+          fillOpacity: 0.65
+        })
+      },
+      onEachFeature: (feature, layer) => {
+        const props = feature.properties || {}
+        const country = props.country_en || 'Unknown country'
+        const count = props.country_count || 1
+
+        layer.bindPopup(`
+          <strong>${country}</strong><br>
+          Count: ${count}
+        `)
+      }
+    }
+  )
+}
+
+async function loadCompanyLayer(company, signal) {
+  const { file } = getCompanyConfig(company)
+
+  const res = await fetch(file, { signal })
+  if (!res.ok) {
+    throw new Error(`Failed to load ${file}`)
+  }
+
+  const pointsData = await res.json()
+
+  // only replace the old layer after the new data is ready
+  companyGeoJsonLayer?.remove()
+  companyGeoJsonLayer = buildCompanyLayer(pointsData).addTo(map)
+}
 
 onMounted(async () => {
-
   await nextTick()
 
-  const map = L.map('map', {
+  map = L.map('map', {
     zoomSnap: 0.5,
     worldCopyJump: true,
     minZoom: 1,
@@ -41,19 +132,17 @@ onMounted(async () => {
     maxBoundsViscosity: 1.0
   }).setView([30, 3], 3)
 
-  // Create panes with explicit z-index
-  
-  // Polygons
-  map.createPane('countriesPane');
-  map.getPane('countriesPane').style.zIndex = 200;
-  // Country labels
-  map.createPane('countryLabelsPane');
-  map.getPane('countryLabelsPane').style.zIndex = 300;
-  // Points
-  map.createPane('pointsPane');
-  map.getPane('pointsPane').style.zIndex = 400;
+  // panes
+  map.createPane('countriesPane')
+  map.getPane('countriesPane').style.zIndex = 200
 
-  //basemap
+  map.createPane('countryLabelsPane')
+  map.getPane('countryLabelsPane').style.zIndex = 300
+
+  map.createPane('pointsPane')
+  map.getPane('pointsPane').style.zIndex = 400
+
+  // basemap
   L.tileLayer('https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png', {
     attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
     subdomains: 'abcd',
@@ -61,70 +150,65 @@ onMounted(async () => {
     noWrap: true
   }).addTo(map)
 
-  //countries avaliable in the data below
+  // countries available in the data below
   const presentCountries = new Set([
-  "FIN","NLD","GBR","USA","CZE","LTU","DEU","POL","ZAF","HKG",
-  "ESP","ROU","IRL","LVA","ITA","CYP","SVK","EST","DNK","IND",
-  "NOR","SGP","CHE","BEL","CAN","HUN","PRT","FRA","HRV","SVN",
-  "AUT","LUX"
-]);
+    'FIN','NLD','GBR','USA','CZE','LTU','DEU','POL','ZAF','HKG',
+    'ESP','ROU','IRL','LVA','ITA','CYP','SVK','EST','DNK','IND',
+    'NOR','SGP','CHE','BEL','CAN','HUN','PRT','FRA','HRV','SVN',
+    'AUT','LUX'
+  ])
 
-const res = await fetch('/geojson/countries.geojson');
-const countries = await res.json();
+  const res = await fetch('/geojson/countries.geojson')
+  const countries = await res.json()
 
-const countryLayer = L.geoJSON(countries, {
-  pane: 'countriesPane',
-  style: () => ({
-    color: '#888',
-    weight: 1,
-    fillColor: '#ffffff',
-    fillOpacity: 0.08
-  }),
+  L.geoJSON(countries, {
+    pane: 'countriesPane',
+    style: () => ({
+      color: '#888',
+      weight: 1,
+      fillColor: '#ffffff',
+      fillOpacity: 0.08
+    }),
+    onEachFeature: (feature, layer) => {
+      const props = feature.properties || {}
 
-  onEachFeature: (feature, layer) => {
-    const props = feature.properties || {};
+      const countryCode =
+        props.ADM0_A3_US ||
+        props.ISO_A3 ||
+        props.ADM0_A3 ||
+        props.gu_a3 ||
+        props.GU_A3
 
-    const countryCode =
-      props.ADM0_A3_US ||
-      props.ISO_A3 ||
-      props.ADM0_A3 ||
-      props.gu_a3 ||
-      props.GU_A3;
+      const name =
+        props.name_en ||
+        props.ADMIN ||
+        props.NAME_EN ||
+        props.name ||
+        'Unknown'
 
-    const name =
-      props.name_en ||
-      props.ADMIN ||
-      props.NAME_EN ||
-      props.name ||
-      'Unknown';
+      if (presentCountries.has(countryCode)) {
+        if (countryCode === 'FRA') {
+          L.marker([46.5, 2.5], {
+            pane: 'countryLabelsPane',
+            interactive: false,
+            icon: L.divIcon({
+              className: 'country-label-marker',
+              html: `<div class="country-label">France</div>`
+            })
+          }).addTo(map)
+        } else {
+          layer.bindTooltip(name, {
+            permanent: true,
+            direction: 'center',
+            className: 'country-label',
+            pane: 'countryLabelsPane'
+          })
+        }
+      }
+    }
+  }).addTo(map)
 
-    const center = layer.getBounds().getCenter();
-
-    if (presentCountries.has(countryCode)) {
-  // Special case for France
-  if (countryCode === 'FRA') {
-    L.marker([46.5, 2.5], {
-      pane: 'countryLabelsPane',
-      interactive: false,
-      icon: L.divIcon({
-        className: 'country-label-marker',
-        html: `<div class="country-label">France</div>`
-      })
-    }).addTo(map);
-  } else {
-    layer.bindTooltip(name, {
-      permanent: true,
-      direction: 'center',
-      className: 'country-label',
-      pane: 'countryLabelsPane'
-    });
-  }
-}
-  }
-}).addTo(map);
-
- 
-  point = L.circleMarker(company.value === 'ssab' ? [65.56347, 22.19981] : [65.805389, 21.75914], {
+  point = L.circleMarker(getCompanyConfig(store.company).factoryLatLng, {
     pane: 'pointsPane',
     radius: 6,
     fillColor: '#14B8A6',
@@ -134,79 +218,36 @@ const countryLayer = L.geoJSON(countries, {
     fillOpacity: 0.9
   }).addTo(map)
 
+  stopCompanyWatcher = watch(
+    () => store.company,
+    async (company, _oldCompany, onCleanup) => {
+      const controller = new AbortController()
+      onCleanup(() => controller.abort())
+
+      updateFactoryPoint(company)
+
+      try {
+        await loadCompanyLayer(company, controller.signal)
+      } catch (error) {
+        if (error.name !== 'AbortError') {
+          console.error('Failed to load company GeoJSON:', error)
+        }
+      }
+    },
+    { immediate: true }
+  )
+
   setTimeout(() => {
     map.invalidateSize()
   }, 100)
-
-  //add geojson point layer
-  const pointRes = await fetch('/geojson/stegra/stegra.geojson');
-const pointsData = await pointRes.json();
-
-// keep only one feature per country
-const seenCountries = new Set();
-const uniqueCountryFeatures = pointsData.features.filter((feature) => {
-  const country = feature.properties?.country_en;
-  if (!country || seenCountries.has(country)) return false;
-  seenCountries.add(country);
-  return true;
-});
-
-// find max country_count
-const counts = uniqueCountryFeatures.map(f => Number(f.properties?.country_count) || 1);
-const maxCount = Math.max(...counts, 1);
-
-// radius scaling between minRadius and maxRadius
-function getRadius(count) {
-  const n = Number(count) || 1;
-  const minRadius = 4;
-  const maxRadius = 14;
-
-  return minRadius + (Math.sqrt(n) / Math.sqrt(maxCount)) * (maxRadius - minRadius);
-}
-
-L.geoJSON(
-  {
-    ...pointsData,
-    features: uniqueCountryFeatures
-  },
-  {
-    pane: 'pointsPane',
-    pointToLayer: (feature, latlng) => {
-      const count = feature.properties?.country_count ?? 1;
-
-      return L.circleMarker(latlng, {
-        radius: getRadius(count),
-        fillColor: '#2563EB',
-        color: '#ffffff',
-        weight: 1,
-        opacity: 1,
-        fillOpacity: 0.65
-      });
-    },
-    onEachFeature: (feature, layer) => {
-      const props = feature.properties || {};
-      const country = props.country_en || 'Unknown country';
-      const count = props.country_count || 1;
-
-      layer.bindPopup(`
-        <strong>${country}</strong><br>
-        Count: ${count}
-      `);
-    }
-  }
-).addTo(map);
 })
 
-
-
-watch(
-  () => store.company,
-  (val) => {
-    if (!point) return
-    // update factory location
-    point.setLatLng(val === 'ssab' ? [65.56347, 22.19981] : [65.805389, 21.75914])
-  }
-)
+onBeforeUnmount(() => {
+  stopCompanyWatcher?.()
+  companyGeoJsonLayer?.remove()
+  point?.remove()
+  map?.remove()
+})
 </script>
 
 <style>
