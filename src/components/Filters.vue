@@ -77,7 +77,7 @@
 </template>
 
 <script setup>
-import { onMounted, ref, watch } from 'vue'
+import { onMounted, ref, watch, nextTick } from 'vue'
 import StatisticsTabs from '@/views/StatisticsTabs.vue'
 import { useStore } from '@/stores/company'
 

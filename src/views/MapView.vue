@@ -23,9 +23,13 @@ import { useStore } from '@/stores/company'
 const store = useStore()
 
 let map = null
-let point = null
+let countriesData = null
+
+let factoryPoint = null
 let companyGeoJsonLayer = null
-let stopCompanyWatcher = null
+let countriesLayer = null
+let countryLabelsLayer = null
+let activeCompanyRequest = null
 
 const COMPANY_CONFIG = {
   ssab: {
@@ -42,23 +46,157 @@ function getCompanyConfig(company) {
   return COMPANY_CONFIG[company] ?? COMPANY_CONFIG.ssab
 }
 
+function normalizeName(value) {
+  return String(value ?? '').trim().toLowerCase()
+}
+
+const COUNTRY_LABEL_OVERRIDES = {
+
+  FRA: { name: 'France', latlng: [46.5, 2.5] },
+  NOR: { name: 'Norway', latlng: [64.5, 11] },
+  SGP: { name: 'Singapore', latlng: [1.35, 103.82] },
+  HKG: { name: 'Hong Kong', latlng: [22.32, 114.17] }
+
+}
+
+function extractCountryCode(props = {}) {
+  return (
+    props.ADM0_A3 ||
+    props.country_a3 ||
+    props.country_code ||
+    props.ISO_A3 ||
+    props.iso_a3 ||
+    props.ADM0_A3_US ||
+    props.gu_a3 ||
+    props.GU_A3 ||
+    props.SOV_A3 ||
+    props.sov_a3 ||
+    null
+  )
+}
+
+function extractCountryName(props = {}) {
+  return (
+    props.country_en ||
+    props.country ||
+    props.name_en ||
+    props.ADMIN ||
+    props.NAME_EN ||
+    props.name ||
+    null
+  )
+}
+
+function buildPresentCountryLookup(pointsData) {
+  const codes = new Set()
+  const names = new Set()
+
+  for (const feature of pointsData.features ?? []) {
+    const props = feature.properties || {}
+    const code = extractCountryCode(props)
+    const name = extractCountryName(props)
+
+    if (code) codes.add(String(code).toUpperCase())
+    if (name) names.add(normalizeName(name))
+  }
+
+  return { codes, names }
+}
+
+function isCountryPresent(countryLookup, countryProps = {}) {
+  const code = extractCountryCode(countryProps)
+  const name = extractCountryName(countryProps)
+
+  return (
+    (code && countryLookup.codes.has(String(code).toUpperCase())) ||
+    (name && countryLookup.names.has(normalizeName(name)))
+  )
+}
+
 function updateFactoryPoint(company) {
-  if (!point) return
-  point.setLatLng(getCompanyConfig(company).factoryLatLng)
+  if (!factoryPoint) return
+  factoryPoint.setLatLng(getCompanyConfig(company).factoryLatLng)
+}
+
+async function fetchJson(url, signal) {
+  const res = await fetch(url, signal ? { signal } : undefined)
+  if (!res.ok) {
+    throw new Error(`Failed to load ${url}`)
+  }
+  return res.json()
+}
+
+function renderCountries(countryLookup) {
+  countriesLayer?.remove()
+  countryLabelsLayer?.remove()
+
+  countryLabelsLayer = L.layerGroup().addTo(map)
+
+  const addedOverrideLabels = new Set()
+
+  countriesLayer = L.geoJSON(countriesData, {
+    pane: 'countriesPane',
+    style: (feature) => {
+      const present = isCountryPresent(countryLookup, feature.properties)
+
+      return {
+        color: '#888',
+        weight: 1,
+        fillColor: '#ffffff',
+        fillOpacity: present ? 0.08 : 0.02
+      }
+    },
+    onEachFeature: (feature, layer) => {
+      const props = feature.properties || {}
+      const present = isCountryPresent(countryLookup, props)
+      if (!present) return
+
+      const code = extractCountryCode(props)
+      const name = extractCountryName(props) || 'Unknown'
+
+      const override = code ? COUNTRY_LABEL_OVERRIDES[code] : null
+
+      if (override) {
+        if (!addedOverrideLabels.has(code)) {
+          addedOverrideLabels.add(code)
+
+          L.marker(override.latlng, {
+            pane: 'countryLabelsPane',
+            interactive: false,
+            icon: L.divIcon({
+              className: 'country-label-marker',
+              html: `<div class="country-label">${override.name}</div>`
+            })
+          }).addTo(countryLabelsLayer)
+        }
+
+        return
+      }
+
+      layer.bindTooltip(name, {
+        permanent: true,
+        direction: 'center',
+        className: 'country-label',
+        pane: 'countryLabelsPane'
+      })
+    }
+  }).addTo(map)
 }
 
 function buildCompanyLayer(pointsData) {
   const seenCountries = new Set()
 
   const uniqueCountryFeatures = (pointsData.features ?? []).filter((feature) => {
-    const country = feature.properties?.country_en
-    if (!country || seenCountries.has(country)) return false
-    seenCountries.add(country)
+    const props = feature.properties || {}
+    const key = extractCountryCode(props) || normalizeName(extractCountryName(props))
+
+    if (!key || seenCountries.has(key)) return false
+    seenCountries.add(key)
     return true
   })
 
   const counts = uniqueCountryFeatures.map(
-    (f) => Number(f.properties?.country_count) || 1
+    (feature) => Number(feature.properties?.country_count) || 1
   )
   const maxCount = Math.max(...counts, 1)
 
@@ -91,7 +229,7 @@ function buildCompanyLayer(pointsData) {
       },
       onEachFeature: (feature, layer) => {
         const props = feature.properties || {}
-        const country = props.country_en || 'Unknown country'
+        const country = extractCountryName(props) || 'Unknown country'
         const count = props.country_count || 1
 
         layer.bindPopup(`
@@ -103,20 +241,40 @@ function buildCompanyLayer(pointsData) {
   )
 }
 
-async function loadCompanyLayer(company, signal) {
-  const { file } = getCompanyConfig(company)
+async function refreshCompany(company) {
+  if (!map || !countriesData || !factoryPoint) return
 
-  const res = await fetch(file, { signal })
-  if (!res.ok) {
-    throw new Error(`Failed to load ${file}`)
+  activeCompanyRequest?.abort()
+  const controller = new AbortController()
+  activeCompanyRequest = controller
+
+  updateFactoryPoint(company)
+
+  try {
+    const { file } = getCompanyConfig(company)
+    const pointsData = await fetchJson(file, controller.signal)
+
+    if (activeCompanyRequest !== controller) return
+
+    const countryLookup = buildPresentCountryLookup(pointsData)
+
+    renderCountries(countryLookup)
+
+    companyGeoJsonLayer?.remove()
+    companyGeoJsonLayer = buildCompanyLayer(pointsData).addTo(map)
+  } catch (error) {
+    if (error.name !== 'AbortError') {
+      console.error('Failed to load company GeoJSON:', error)
+    }
   }
-
-  const pointsData = await res.json()
-
-  // only replace the old layer after the new data is ready
-  companyGeoJsonLayer?.remove()
-  companyGeoJsonLayer = buildCompanyLayer(pointsData).addTo(map)
 }
+
+watch(
+  () => store.company,
+  (company) => {
+    refreshCompany(company)
+  }
+)
 
 onMounted(async () => {
   await nextTick()
@@ -132,7 +290,6 @@ onMounted(async () => {
     maxBoundsViscosity: 1.0
   }).setView([30, 3], 3)
 
-  // panes
   map.createPane('countriesPane')
   map.getPane('countriesPane').style.zIndex = 200
 
@@ -142,7 +299,6 @@ onMounted(async () => {
   map.createPane('pointsPane')
   map.getPane('pointsPane').style.zIndex = 400
 
-  // basemap
   L.tileLayer('https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png', {
     attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
     subdomains: 'abcd',
@@ -150,65 +306,9 @@ onMounted(async () => {
     noWrap: true
   }).addTo(map)
 
-  // countries available in the data below
-  const presentCountries = new Set([
-    'FIN','NLD','GBR','USA','CZE','LTU','DEU','POL','ZAF','HKG',
-    'ESP','ROU','IRL','LVA','ITA','CYP','SVK','EST','DNK','IND',
-    'NOR','SGP','CHE','BEL','CAN','HUN','PRT','FRA','HRV','SVN',
-    'AUT','LUX'
-  ])
+  countriesData = await fetchJson('/geojson/countries.geojson')
 
-  const res = await fetch('/geojson/countries.geojson')
-  const countries = await res.json()
-
-  L.geoJSON(countries, {
-    pane: 'countriesPane',
-    style: () => ({
-      color: '#888',
-      weight: 1,
-      fillColor: '#ffffff',
-      fillOpacity: 0.08
-    }),
-    onEachFeature: (feature, layer) => {
-      const props = feature.properties || {}
-
-      const countryCode =
-        props.ADM0_A3_US ||
-        props.ISO_A3 ||
-        props.ADM0_A3 ||
-        props.gu_a3 ||
-        props.GU_A3
-
-      const name =
-        props.name_en ||
-        props.ADMIN ||
-        props.NAME_EN ||
-        props.name ||
-        'Unknown'
-
-      if (presentCountries.has(countryCode)) {
-        if (countryCode === 'FRA') {
-          L.marker([46.5, 2.5], {
-            pane: 'countryLabelsPane',
-            interactive: false,
-            icon: L.divIcon({
-              className: 'country-label-marker',
-              html: `<div class="country-label">France</div>`
-            })
-          }).addTo(map)
-        } else {
-          layer.bindTooltip(name, {
-            permanent: true,
-            direction: 'center',
-            className: 'country-label',
-            pane: 'countryLabelsPane'
-          })
-        }
-      }
-    }
-  }).addTo(map)
-
-  point = L.circleMarker(getCompanyConfig(store.company).factoryLatLng, {
+  factoryPoint = L.circleMarker(getCompanyConfig(store.company).factoryLatLng, {
     pane: 'pointsPane',
     radius: 6,
     fillColor: '#14B8A6',
@@ -218,24 +318,7 @@ onMounted(async () => {
     fillOpacity: 0.9
   }).addTo(map)
 
-  stopCompanyWatcher = watch(
-    () => store.company,
-    async (company, _oldCompany, onCleanup) => {
-      const controller = new AbortController()
-      onCleanup(() => controller.abort())
-
-      updateFactoryPoint(company)
-
-      try {
-        await loadCompanyLayer(company, controller.signal)
-      } catch (error) {
-        if (error.name !== 'AbortError') {
-          console.error('Failed to load company GeoJSON:', error)
-        }
-      }
-    },
-    { immediate: true }
-  )
+  await refreshCompany(store.company)
 
   setTimeout(() => {
     map.invalidateSize()
@@ -243,9 +326,11 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
-  stopCompanyWatcher?.()
+  activeCompanyRequest?.abort()
   companyGeoJsonLayer?.remove()
-  point?.remove()
+  countriesLayer?.remove()
+  countryLabelsLayer?.remove()
+  factoryPoint?.remove()
   map?.remove()
 })
 </script>
