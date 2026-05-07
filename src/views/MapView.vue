@@ -7,7 +7,7 @@
         mandatory
         border
         :model-value="store.company"
-        @update:model-value="store.setCompany"
+        @update:model-value="company => store.setCompany(company)"
         class="toggle-group"
         color="primary"
       >
@@ -22,7 +22,7 @@
 </template>
 
 <script setup>
-import { onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
+import { ref, shallowRef, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
 import * as L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import Filters from '@/components/Filters.vue'
@@ -30,14 +30,14 @@ import { useStore } from '@/stores/company'
 
 const store = useStore()
 
-let map = null
-let countriesData = null
+const map = shallowRef(null)
+const factoryPoint = shallowRef(null)
+const companyGeoJsonLayer = shallowRef(null)
+const countriesLayer = shallowRef(null)
+const countryLabelsLayer = shallowRef(null)
 
-let factoryPoint = null
-let companyGeoJsonLayer = null
-let countriesLayer = null
-let countryLabelsLayer = null
-let activeCompanyRequest = null
+const countriesData = ref(null)
+const mapReady = ref(false)
 
 const COMPANY_CONFIG = {
   ssab: {
@@ -59,12 +59,10 @@ function normalizeName(value) {
 }
 
 const COUNTRY_LABEL_OVERRIDES = {
-
   FRA: { name: 'France', latlng: [46.5, 2.5] },
   NOR: { name: 'Norway', latlng: [64.5, 11] },
   SGP: { name: 'Singapore', latlng: [1.35, 103.82] },
   HKG: { name: 'Hong Kong', latlng: [22.32, 114.17] }
-
 }
 
 function extractCountryCode(props = {}) {
@@ -122,8 +120,8 @@ function isCountryPresent(countryLookup, countryProps = {}) {
 }
 
 function updateFactoryPoint(company) {
-  if (!factoryPoint) return
-  factoryPoint.setLatLng(getCompanyConfig(company).factoryLatLng)
+  if (!factoryPoint.value) return
+  factoryPoint.value.setLatLng(getCompanyConfig(company).factoryLatLng)
 }
 
 async function fetchJson(url, signal) {
@@ -135,14 +133,14 @@ async function fetchJson(url, signal) {
 }
 
 function renderCountries(countryLookup) {
-  countriesLayer?.remove()
-  countryLabelsLayer?.remove()
+  countriesLayer.value?.remove()
+  countryLabelsLayer.value?.remove()
 
-  countryLabelsLayer = L.layerGroup().addTo(map)
+  countryLabelsLayer.value = L.layerGroup().addTo(map.value)
 
   const addedOverrideLabels = new Set()
 
-  countriesLayer = L.geoJSON(countriesData, {
+  countriesLayer.value = L.geoJSON(countriesData.value, {
     pane: 'countriesPane',
     style: (feature) => {
       const present = isCountryPresent(countryLookup, feature.properties)
@@ -175,7 +173,7 @@ function renderCountries(countryLookup) {
               className: 'country-label-marker',
               html: `<div class="country-label">${override.name}</div>`
             })
-          }).addTo(countryLabelsLayer)
+          }).addTo(countryLabelsLayer.value)
         }
 
         return
@@ -188,7 +186,7 @@ function renderCountries(countryLookup) {
         pane: 'countryLabelsPane'
       })
     }
-  }).addTo(map)
+  }).addTo(map.value)
 }
 
 function buildCompanyLayer(pointsData) {
@@ -250,17 +248,18 @@ function buildCompanyLayer(pointsData) {
 }
 
 function refreshCompany(pointsData) {
-  if (!map || !countriesData || !factoryPoint || !pointsData) return
+  if (!map.value || !countriesData.value || !factoryPoint.value || !pointsData) return
   updateFactoryPoint(store.company)
   const countryLookup = buildPresentCountryLookup(pointsData)
   renderCountries(countryLookup)
-  companyGeoJsonLayer?.remove()
-  companyGeoJsonLayer = buildCompanyLayer(pointsData).addTo(map)
+  companyGeoJsonLayer.value?.remove()
+  companyGeoJsonLayer.value = buildCompanyLayer(pointsData).addTo(map.value)
 }
 
 watch(
-  () => store.geojson,
-  (geojson) => {
+  [() => store.geojson, mapReady],
+  ([geojson, ready]) => {
+    if (!ready || !geojson) return
     refreshCompany(geojson)
   },
   { immediate: true }
@@ -269,7 +268,7 @@ watch(
 onMounted(async () => {
   await nextTick()
 
-  map = L.map('map', {
+  map.value = L.map('map', {
     zoomSnap: 0.5,
     worldCopyJump: true,
     minZoom: 1,
@@ -280,25 +279,25 @@ onMounted(async () => {
     maxBoundsViscosity: 1.0
   }).setView([30, 3], 3)
 
-  map.createPane('countriesPane')
-  map.getPane('countriesPane').style.zIndex = 200
+  const pane = map.value.createPane('countriesPane')
+  pane.style.zIndex = 200
 
-  map.createPane('countryLabelsPane')
-  map.getPane('countryLabelsPane').style.zIndex = 300
+  const labelsPane = map.value.createPane('countryLabelsPane')
+  labelsPane.style.zIndex = 300
 
-  map.createPane('pointsPane')
-  map.getPane('pointsPane').style.zIndex = 400
+  const pointsPane = map.value.createPane('pointsPane')
+  pointsPane.style.zIndex = 400
 
   L.tileLayer('https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png', {
     attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
     subdomains: 'abcd',
     maxZoom: 20,
     noWrap: true
-  }).addTo(map)
+  }).addTo(map.value)
 
-  countriesData = await fetchJson('/geojson/countries.geojson')
+  countriesData.value = await fetchJson('/geojson/countries.geojson')
 
-  factoryPoint = L.circleMarker(getCompanyConfig(store.company).factoryLatLng, {
+  factoryPoint.value = L.circleMarker(getCompanyConfig(store.company).factoryLatLng, {
     pane: 'pointsPane',
     radius: 6,
     fillColor: '#14B8A6',
@@ -306,26 +305,39 @@ onMounted(async () => {
     weight: 2,
     opacity: 1,
     fillOpacity: 0.9
-  }).addTo(map)
+  }).addTo(map.value)
+
+  mapReady.value = true
 
   if (!store.geojson) {
+    console.log('Loading geojson for company:', store.company)
     await store.loadGeojson()
-  } else {
+  }
+  if (store.geojson) {
     refreshCompany(store.geojson)
+    console.log('Rendering geojson for company:', store.company)
+  } else {
+    console.warn('No geojson available after load')
   }
 
   setTimeout(() => {
-    map.invalidateSize()
+    map.value.invalidateSize()
   }, 100)
 })
 
 onBeforeUnmount(() => {
-  activeCompanyRequest?.abort()
-  companyGeoJsonLayer?.remove()
-  countriesLayer?.remove()
-  countryLabelsLayer?.remove()
-  factoryPoint?.remove()
-  map?.remove()
+  companyGeoJsonLayer.value?.remove()
+  countriesLayer.value?.remove()
+  countryLabelsLayer.value?.remove()
+  factoryPoint.value?.remove()
+  map.value?.remove()
+
+  companyGeoJsonLayer.value = null
+  countriesLayer.value = null
+  countryLabelsLayer.value = null
+  factoryPoint.value = null
+  map.value = null
+  mapReady.value = false
 })
 </script>
 

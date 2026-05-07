@@ -10,21 +10,29 @@ export const useStore = defineStore('company', () => {
     const geojson = ref(null)
     const loadingGeojson = ref(false)
 
-    const loadGeojson = async (company) => {
-        if (!company) return
+    const loadGeojson = async (selectedCompany = company.value) => {
+        if (!selectedCompany) return
+
         let url = ''
-        if (company === 'stegra') {
-        url = '/geojson/stegra/stegra.geojson'
-      } else if (company === 'ssab') {
-        url = '/geojson/ssab/ssab.geojson'
-      } else {
-        console.warn('Unknown company:', company)
-        return
-      }
+
+        if (selectedCompany === 'stegra') {
+            url = '/geojson/stegra/stegra.geojson'
+        } else if (selectedCompany === 'ssab') {
+            url = '/geojson/ssab/ssab.geojson'
+        } else {
+            console.warn('Unknown company:', selectedCompany)
+            return
+        }
 
         loadingGeojson.value = true
+
         try {
             const res = await fetch(url)
+
+            if (!res.ok) {
+            throw new Error(`Failed to load ${url}`)
+            }
+
             geojson.value = await res.json()
         } catch (error) {
             console.error('Error loading GeoJSON:', error)
@@ -32,7 +40,7 @@ export const useStore = defineStore('company', () => {
         } finally {
             loadingGeojson.value = false
         }
-    }
+        }
 
     const setCompany = async (newCompany) => {
         company.value = newCompany
@@ -66,5 +74,20 @@ export const useStore = defineStore('company', () => {
         year.value = null
     }
 
-    return { company, setCompany, country, setCountry, resetCountry, branch, setBranch, resetBranch, year, setYear, resetYear, geojson, loadingGeojson, loadGeojson, setCompany }
+    return { 
+        company,
+        setCompany,
+        country, 
+        setCountry, 
+        resetCountry, 
+        branch, 
+        setBranch, 
+        resetBranch, 
+        year, 
+        setYear, 
+        resetYear, 
+        geojson, 
+        loadingGeojson, 
+        loadGeojson, 
+    }
 })
