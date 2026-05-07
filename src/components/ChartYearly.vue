@@ -6,14 +6,11 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import * as echarts from 'echarts'
 import { useStore } from '@/stores/company'
 
-
 const store = useStore()
-
-
 const chartEl = ref(null)
 let myChart = null
 
@@ -24,34 +21,61 @@ const months = [
 
 const years = ['2023', '2024', '2025', '2026']
 
-// Format: [yearIndex, monthIndex, value]
-const data = [
-  [0, 0, 5], [0, 1, 8], [0, 2, 3], [0, 3, 6], [0, 4, 4], [0, 5, 7],
-  [0, 6, 2], [0, 7, 9], [0, 8, 5], [0, 9, 4], [0, 10, 6], [0, 11, 3],
-
-  [1, 0, 4], [1, 1, 6], [1, 2, 2], [1, 3, 7], [1, 4, 5], [1, 5, 8],
-  [1, 6, 3], [1, 7, 6], [1, 8, 4], [1, 9, 7], [1, 10, 5], [1, 11, 2],
-
-  [2, 0, 6], [2, 1, 5], [2, 2, 7], [2, 3, 4], [2, 4, 8], [2, 5, 3],
-  [2, 6, 5], [2, 7, 7], [2, 8, 6], [2, 9, 4], [2, 10, 8], [2, 11, 5],
-
-  [3, 0, 3], [3, 1, 4], [3, 2, 6], [3, 3, 5], [3, 4, 7], [3, 5, 2],
-  [3, 6, 4], [3, 7, 8], [3, 8, 5], [3, 9, 6], [3, 10, 3], [3, 11, 7]
-]
-
 function resizeChart() {
   if (myChart) myChart.resize()
 }
 
-onMounted(async () => {
-  await nextTick()
+function parseDate(dateStr) {
+  if (!dateStr) return null
+  const d = new Date(dateStr)
+  return Number.isNaN(d.getTime()) ? null : d
+}
 
-  myChart = echarts.init(chartEl.value)
+function getMonthlyDataFromGeoJSON(features) {
+  const yearToIndex = Object.fromEntries(years.map((y, i) => [Number(y), i]))
+  const counts = {}
+  years.forEach((year, yearIndex) => {
+    for (let monthIndex = 0; monthIndex < 12; monthIndex++) {
+      counts[`${yearIndex}-${monthIndex}`] = 0
+    }
+  })
 
+  for (const feature of features) {
+    const props = feature.properties || {}
+    const start = parseDate(props.startdate)
+    const end = parseDate(props.enddate) || new Date()
+    if (!start || !end) continue
+    if (start > end) continue
+    const current = new Date(start.getFullYear(), start.getMonth(), 1)
+    const last = new Date(end.getFullYear(), end.getMonth(), 1)
+    while (current <= last) {
+      const year = current.getFullYear()
+      const month = current.getMonth()
+      const yearIndex = yearToIndex[year]
+      if (yearIndex !== undefined) {
+        counts[`${yearIndex}-${month}`] += 1
+      }
+      current.setMonth(current.getMonth() + 1)
+    }
+  }
+
+  const result = []
+
+  years.forEach((year, yearIndex) => {
+    for (let monthIndex = 0; monthIndex < 12; monthIndex++) {
+      result.push([yearIndex, monthIndex, counts[`${yearIndex}-${monthIndex}`]])
+    }
+  })
+  return result
+}
+
+function updateChart(geojson) {
+  if (!myChart || !geojson?.features) return
+  const data = getMonthlyDataFromGeoJSON(geojson.features)
   const title = []
   const singleAxis = []
   const series = []
-
+  const maxValue = Math.max(...data.map(d => d[2]), 1)
   years.forEach((year, idx) => {
     title.push({
       textBaseline: 'middle',
@@ -78,16 +102,22 @@ onMounted(async () => {
       type: 'scatter',
       data: [],
       symbolSize(dataItem) {
-        return dataItem[1] * 4
+        const value = dataItem[1]
+        if (value === 0) return 0
+        const minSize = 5
+        const maxSize = 30
+
+        return minSize + (Math.sqrt(value) / Math.sqrt(maxValue)) * (maxSize - minSize)
       }
     })
+
   })
 
   data.forEach((dataItem) => {
     series[dataItem[0]].data.push([dataItem[1], dataItem[2]])
   })
 
-  const option = {
+  myChart.setOption({
     tooltip: {
       position: 'top',
       formatter(params) {
@@ -97,16 +127,37 @@ onMounted(async () => {
         return `${year}<br>${month}: ${value}`
       }
     },
+
     title,
     singleAxis,
     series
-  }
+  }, true)
 
-  myChart.setOption(option)
+  resizeChart()
+}
+
+onMounted(async () => {
+  await nextTick()
+
+  myChart = echarts.init(chartEl.value)
+
+  if (!store.geojson) {
+    await store.loadGeojson()
+  } else {
+    updateChart(store.geojson)
+  }
 
   window.addEventListener('resize', resizeChart)
   resizeChart()
 })
+
+watch(
+  () => store.geojson,
+  (geojson) => {
+    updateChart(geojson)
+  },
+  { immediate: true }
+)
 
 onUnmounted(() => {
   window.removeEventListener('resize', resizeChart)
@@ -115,6 +166,7 @@ onUnmounted(() => {
     myChart = null
   }
 })
+
 </script>
 
 <style scoped>
