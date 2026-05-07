@@ -117,6 +117,8 @@ function updateChart(geojson) {
     series[dataItem[0]].data.push([dataItem[1], dataItem[2]])
   })
 
+  myChart.clear()
+
   myChart.setOption({
     tooltip: {
       position: 'top',
@@ -127,11 +129,10 @@ function updateChart(geojson) {
         return `${year}<br>${month}: ${value}`
       }
     },
-
     title,
     singleAxis,
     series
-  }, true)
+  })
 
   resizeChart()
 }
