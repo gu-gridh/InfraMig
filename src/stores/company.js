@@ -1,18 +1,44 @@
-import { ref, computed } from 'vue'
+import { ref } from 'vue'
 import { defineStore } from 'pinia'
 
 export const useStore = defineStore('company', () => {
-  // state should be either 'ssab' or 'stegra'
+  // state should be either 'ssab' or 'stegra', geojson file loaded here based on this
     const company = ref('ssab')
+    const country = ref()
+    const branch = ref()
+    const year = ref(null)
+    const geojson = ref(null)
+    const loadingGeojson = ref(false)
 
-    function setCompany(newCompany) {
-        if (newCompany === 'ssab' || newCompany === 'stegra') {
-            company.value = newCompany
-        } 
+    const loadGeojson = async (company) => {
+        if (!company) return
+        let url = ''
+        if (company === 'stegra') {
+        url = '/geojson/stegra/stegra.geojson'
+      } else if (company === 'ssab') {
+        url = '/geojson/ssab/ssab.geojson'
+      } else {
+        console.warn('Unknown company:', company)
+        return
+      }
+
+        loadingGeojson.value = true
+        try {
+            const res = await fetch(url)
+            geojson.value = await res.json()
+        } catch (error) {
+            console.error('Error loading GeoJSON:', error)
+            geojson.value = null
+        } finally {
+            loadingGeojson.value = false
+        }
     }
 
-    //set filter state to null by default
-    const country = ref()
+    const setCompany = async (newCompany) => {
+        company.value = newCompany
+        await loadGeojson(newCompany)
+    }
+    
 
     function setCountry(newCountry) {
         country.value = newCountry
@@ -22,7 +48,7 @@ export const useStore = defineStore('company', () => {
         country.value = null
     }
 
-    const branch = ref()
+    
     function setBranch(newBranch) {
         branch.value = newBranch
     }
@@ -31,7 +57,7 @@ export const useStore = defineStore('company', () => {
         branch.value = null
     }
 
-    const year = ref(null)
+    
     function setYear(newYear) {
         year.value = newYear
     }
@@ -40,8 +66,5 @@ export const useStore = defineStore('company', () => {
         year.value = null
     }
 
-
-    return { company, setCompany, country, setCountry, resetCountry, branch, setBranch, resetBranch, year, setYear, resetYear }
-
-
+    return { company, setCompany, country, setCountry, resetCountry, branch, setBranch, resetBranch, year, setYear, resetYear, geojson, loadingGeojson, loadGeojson, setCompany }
 })

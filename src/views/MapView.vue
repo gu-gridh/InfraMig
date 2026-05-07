@@ -2,7 +2,15 @@
   <div class="map-wrapper">
     <div id="map"></div>
     <div class="map-top-center">
-      <v-btn-toggle rounded="small" mandatory border v-model="store.company" class="toggle-group" color="primary">
+      <v-btn-toggle
+        rounded="small"
+        mandatory
+        border
+        :model-value="store.company"
+        @update:model-value="store.setCompany"
+        class="toggle-group"
+        color="primary"
+      >
         <v-btn value="ssab">SSAB</v-btn>
         <v-btn value="stegra">Stegra</v-btn>
       </v-btn-toggle>
@@ -241,39 +249,21 @@ function buildCompanyLayer(pointsData) {
   )
 }
 
-async function refreshCompany(company) {
-  if (!map || !countriesData || !factoryPoint) return
-
-  activeCompanyRequest?.abort()
-  const controller = new AbortController()
-  activeCompanyRequest = controller
-
-  updateFactoryPoint(company)
-
-  try {
-    const { file } = getCompanyConfig(company)
-    const pointsData = await fetchJson(file, controller.signal)
-
-    if (activeCompanyRequest !== controller) return
-
-    const countryLookup = buildPresentCountryLookup(pointsData)
-
-    renderCountries(countryLookup)
-
-    companyGeoJsonLayer?.remove()
-    companyGeoJsonLayer = buildCompanyLayer(pointsData).addTo(map)
-  } catch (error) {
-    if (error.name !== 'AbortError') {
-      console.error('Failed to load company GeoJSON:', error)
-    }
-  }
+function refreshCompany(pointsData) {
+  if (!map || !countriesData || !factoryPoint || !pointsData) return
+  updateFactoryPoint(store.company)
+  const countryLookup = buildPresentCountryLookup(pointsData)
+  renderCountries(countryLookup)
+  companyGeoJsonLayer?.remove()
+  companyGeoJsonLayer = buildCompanyLayer(pointsData).addTo(map)
 }
 
 watch(
-  () => store.company,
-  (company) => {
-    refreshCompany(company)
-  }
+  () => store.geojson,
+  (geojson) => {
+    refreshCompany(geojson)
+  },
+  { immediate: true }
 )
 
 onMounted(async () => {
@@ -318,7 +308,11 @@ onMounted(async () => {
     fillOpacity: 0.9
   }).addTo(map)
 
-  await refreshCompany(store.company)
+  if (!store.geojson) {
+    await store.loadGeojson()
+  } else {
+    refreshCompany(store.geojson)
+  }
 
   setTimeout(() => {
     map.invalidateSize()

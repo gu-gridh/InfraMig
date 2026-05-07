@@ -79,12 +79,24 @@ function getMonthlyDataFromGeoJSON(features) {
 }
 
 onMounted(async () => {
+  if (!store.company) return
+  let url = ''
+  if (store.company === 'stegra') {
+    url = '/geojson/stegra/stegra.geojson'
+  } else if (store.company === 'ssab') {
+    url = '/geojson/ssab/ssab.geojson'
+  } else {
+    console.warn('Unknown company:', store.company)
+    return
+  }
+
+  const res = await fetch(url)
+
+  const geojson = await res.json()
+
   await nextTick()
 
   myChart = echarts.init(chartEl.value)
-
-  const res = await fetch('/geojson/stegra/stegra.geojson')
-  const geojson = await res.json()
 
   const data = getMonthlyDataFromGeoJSON(geojson.features)
 
