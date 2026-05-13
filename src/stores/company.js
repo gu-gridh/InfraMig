@@ -3,7 +3,7 @@ import { defineStore } from 'pinia'
 
 export const useStore = defineStore('company', () => {
   // state should be either 'ssab' or 'stegra', geojson file loaded here based on this
-    const company = ref('ssab')
+    const company = ref('stegra')
     const country = ref()
     const branch = ref()
     const year = ref(null)

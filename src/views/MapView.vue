@@ -11,8 +11,8 @@
         class="toggle-group"
         color="primary"
       >
-        <v-btn value="ssab">SSAB</v-btn>
         <v-btn value="stegra">Stegra</v-btn>
+        <v-btn value="ssab">SSAB</v-btn>
       </v-btn-toggle>
     </div>
     <div class="map-panel">
@@ -240,7 +240,8 @@ function buildCompanyLayer(pointsData) {
 
         layer.bindPopup(`
           <strong>${country}</strong><br>
-          Count: ${count}
+          Count: ${count}<br>
+          Average: ${props.duration_avg ? props.duration_avg + ' days' : 'N/A'}
         `)
       }
     }

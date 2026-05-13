@@ -11,10 +11,10 @@
 
             <v-tabs-window v-model="tab">
                 <v-tabs-window-item value="one">
-                <v-sheet class="pa-5"><ChartYearly /></v-sheet>
+                <v-sheet class="pa-5"><ChartDuration /></v-sheet>
                 </v-tabs-window-item>
                 <v-tabs-window-item value="two">
-                <v-sheet class="pa-5"><ChartDuration /></v-sheet>
+                <v-sheet class="pa-5"><ChartYearly /></v-sheet>
                 </v-tabs-window-item>
                 <v-tabs-window-item value="three">
                 <v-sheet class="pa-5">Three</v-sheet>

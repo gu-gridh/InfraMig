@@ -66,7 +66,8 @@ const bins = [
   { label: '0-3', min: 0, max: 3 },
   { label: '3-6', min: 3, max: 6 },
   { label: '6-12', min: 6, max: 12 },
-  { label: '12-24', min: 12, max: 24 },
+  { label: '12-18', min: 12, max: 18 },
+  { label: '18-24', min: 18, max: 24 },
   { label: '24+', min: 24, max: Infinity }
 ]
 
