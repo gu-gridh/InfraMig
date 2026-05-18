@@ -35,6 +35,7 @@ const factoryPoint = shallowRef(null)
 const companyGeoJsonLayer = shallowRef(null)
 const countriesLayer = shallowRef(null)
 const countryLabelsLayer = shallowRef(null)
+const durationLegend = shallowRef(null)
 
 const countriesData = ref(null)
 const mapReady = ref(false)
@@ -91,6 +92,78 @@ function extractCountryName(props = {}) {
     props.name ||
     null
   )
+}
+
+function interpolateColor(color1, color2, factor) {
+  const result = color1.slice()
+
+  for (let i = 0; i < 3; i++) {
+    result[i] = Math.round(
+      result[i] + factor * (color2[i] - color1[i])
+    )
+  }
+
+  return `rgb(${result.join(',')})`
+}
+
+function getDurationColor(durationAvg, min, max) {
+  const value = Number(durationAvg)
+
+  if (!Number.isFinite(value)) {
+    return '#d4d4d8'
+  }
+
+  const normalized = Math.max(
+    0,
+    Math.min(1, (value - min) / (max - min || 1))
+  )
+
+  // soft pink -> dark pink
+  const start = [102,153,255] // #6699ff
+  const end = [102,0,255]     // #6600ff
+
+  return interpolateColor(start, end, normalized)
+}
+
+function renderDurationLegend(min, max) {
+  durationLegend.value?.remove()
+
+  const ranges = [
+    [1, 50],
+    [50, 100],
+    [100, 150],
+    [150, 200],
+    [200, 300],
+    [300, 500],
+    [500, 1000],
+    [1000, 1500],
+  ]
+
+  durationLegend.value = L.control({ position: 'bottomright' })
+
+  durationLegend.value.onAdd = () => {
+    const div = L.DomUtil.create('div', 'duration-legend')
+
+    div.innerHTML = `
+      <div class="legend-title">Average days</div>
+
+      ${ranges.map(([from, to]) => {
+        const mid = (from + to) / 2
+        return `
+          <div class="legend-row">
+            <span
+              class="legend-point"
+              style="background:${getDurationColor(mid, min, max)}"
+            ></span>
+
+            <span>${from}–${Math.round(to)}</span>
+          </div>
+        `
+      }).join('')}
+    `
+    return div
+  }
+  durationLegend.value.addTo(map.value)
 }
 
 function buildPresentCountryLookup(pointsData) {
@@ -214,6 +287,15 @@ function buildCompanyLayer(pointsData) {
     return minRadius + (Math.sqrt(n) / Math.sqrt(maxCount)) * (maxRadius - minRadius)
   }
 
+  const durations = uniqueCountryFeatures
+    .map(f => Number(f.properties?.duration_avg))
+    .filter(v => Number.isFinite(v))
+
+  const minDuration = Math.min(...durations)
+  const maxDuration = Math.max(...durations)
+
+  renderDurationLegend(minDuration, maxDuration)
+
   return L.geoJSON(
     {
       ...pointsData,
@@ -223,14 +305,18 @@ function buildCompanyLayer(pointsData) {
       pane: 'pointsPane',
       pointToLayer: (feature, latlng) => {
         const count = feature.properties?.country_count ?? 1
-
+        const durationAvg = feature.properties?.duration_avg
         return L.circleMarker(latlng, {
           radius: getRadius(count),
-          fillColor: '#2563EB',
+          fillColor: getDurationColor(
+            durationAvg,
+            minDuration,
+            maxDuration
+          ),
           color: '#ffffff',
           weight: 1,
           opacity: 1,
-          fillOpacity: 0.65
+          fillOpacity: 0.8
         })
       },
       onEachFeature: (feature, layer) => {
@@ -308,15 +394,15 @@ onMounted(async () => {
     fillOpacity: 0.9
   }).addTo(map.value)
 
+  renderDurationLegend()
+
   mapReady.value = true
 
   if (!store.geojson) {
-    console.log('Loading geojson for company:', store.company)
     await store.loadGeojson()
   }
   if (store.geojson) {
     refreshCompany(store.geojson)
-    console.log('Rendering geojson for company:', store.company)
   } else {
     console.warn('No geojson available after load')
   }
@@ -339,6 +425,8 @@ onBeforeUnmount(() => {
   factoryPoint.value = null
   map.value = null
   mapReady.value = false
+  durationLegend.value?.remove()
+  durationLegend.value = null
 })
 </script>
 
@@ -394,4 +482,36 @@ html, body, #app {
   font-weight: 800;
 }
 
+.duration-legend {
+  background: rgba(255,255,255,0.92);
+  padding: 10px 12px;
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  min-width: 140px;
+}
+
+.legend-title {
+  font-size: 12px;
+  font-weight: 700;
+  margin-bottom: 8px;
+  color: #333;
+}
+
+.legend-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  font-size: 11px;
+  color: #444;
+}
+
+.legend-point {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  display: inline-block;
+  border: 1px solid rgba(255,255,255,0.9);
+  flex-shrink: 0;
+}
 </style>
