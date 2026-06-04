@@ -139,7 +139,7 @@ function renderDurationLegend(min, max) {
     [1000, 1500],
   ]
 
-  durationLegend.value = L.control({ position: 'bottomright' })
+  durationLegend.value = L.control({ position: 'bottomleft' })
 
   durationLegend.value.onAdd = () => {
     const div = L.DomUtil.create('div', 'duration-legend')

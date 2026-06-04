@@ -2,8 +2,8 @@
     <div class="tabs">
         <v-sheet elevation="0">
             <v-tabs v-model="tab" color="primary">
-                <v-tab value="one">Workforce</v-tab>
-                <v-tab value="two">Duration</v-tab>
+                <v-tab value="one">Duration</v-tab>
+                <v-tab value="two">Workforceß</v-tab>
                 <v-tab value="three">Item Three</v-tab>
             </v-tabs>
 

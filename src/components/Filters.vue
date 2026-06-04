@@ -145,8 +145,7 @@ watch(
     console.log('Filters changed:', { country, year, branch })
     store.country = country
     store.year = year
-    store.setBranch(branch)
-    // update map and charts based on filters here
+    store.branch = branch
   }
 )
 
@@ -171,7 +170,7 @@ watch(
       store.resetBranch()
       selectedBranch.value = store.branch
     } else {
-      store.setBranch(branch)
+      store.branch = branch
     }
 
     console.log('Filters changed:', {
