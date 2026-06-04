@@ -31,6 +31,8 @@ function parseDate(dateStr) {
   return Number.isNaN(d.getTime()) ? null : d
 }
 
+
+
 function getMonthlyDataFromGeoJSON(features) {
   const yearToIndex = Object.fromEntries(years.map((y, i) => [Number(y), i]))
   const counts = {}
@@ -69,12 +71,26 @@ function getMonthlyDataFromGeoJSON(features) {
   return result
 }
 
+function getFilteredFeatures(features) {
+  return features.filter(feature => {
+    const props = feature.properties || {}
+    const matchesCountry =
+      !store.country || props.country_code === store.country
+    const matchesBranch =
+      !store.branch || props.sni_code === store.branch
+    return matchesCountry && matchesBranch
+  })
+}
+
 function updateChart(geojson) {
   if (!myChart || !geojson?.features) return
-  const data = getMonthlyDataFromGeoJSON(geojson.features)
+
+  const filteredFeatures = getFilteredFeatures(geojson.features)
+  const data = getMonthlyDataFromGeoJSON(filteredFeatures)
   const title = []
   const singleAxis = []
   const series = []
+
   const maxValue = Math.max(...data.map(d => d[2]), 1)
   years.forEach((year, idx) => {
     title.push({
@@ -153,11 +169,11 @@ onMounted(async () => {
 })
 
 watch(
-  () => store.geojson,
-  (geojson) => {
-    updateChart(geojson)
+  () => [store.geojson, store.country, store.branch],
+  () => {
+    updateChart(store.geojson)
   },
-  { immediate: true }
+  { immediate: true, deep: true }
 )
 
 onUnmounted(() => {
