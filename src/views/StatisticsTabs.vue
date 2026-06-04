@@ -2,8 +2,8 @@
     <div class="tabs">
         <v-sheet elevation="0">
             <v-tabs v-model="tab" color="primary">
-                <v-tab value="one">Workforce</v-tab>
-                <v-tab value="two">Duration</v-tab>
+                <v-tab value="one">Duration</v-tab>
+                <v-tab value="two">Workforceß</v-tab>
                 <v-tab value="three">Item Three</v-tab>
             </v-tabs>
 
@@ -11,10 +11,10 @@
 
             <v-tabs-window v-model="tab">
                 <v-tabs-window-item value="one">
-                <v-sheet class="pa-5"><ChartYearly /></v-sheet>
+                <v-sheet class="pa-5"><ChartDuration /></v-sheet>
                 </v-tabs-window-item>
                 <v-tabs-window-item value="two">
-                <v-sheet class="pa-5"><ChartDuration /></v-sheet>
+                <v-sheet class="pa-5"><ChartYearly /></v-sheet>
                 </v-tabs-window-item>
                 <v-tabs-window-item value="three">
                 <v-sheet class="pa-5">Three</v-sheet>

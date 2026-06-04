@@ -13,7 +13,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import * as echarts from 'echarts'
 import { useStore } from '@/stores/company'
 
@@ -25,67 +25,61 @@ const timelineEl = ref(null)
 let histogramChart = null
 let timelineChart = null
 
-function generateMockData(n = 200) {
-  const countries = ['Sweden', 'Germany', 'India', 'China']
-  const branches = ['IT', 'Logistics', 'HR']
-
-  const data = []
-
-  for (let i = 0; i < n; i++) {
-    const start = new Date(
-      2022 + Math.floor(Math.random() * 5), // 2022-2026
-      Math.floor(Math.random() * 12),
-      1
-    )
-
-    const durationMonths = Math.floor(Math.random() * 24) + 1
-
-    const end = new Date(start)
-    end.setMonth(end.getMonth() + durationMonths)
-
-    data.push({
-      start_date: start.toISOString(),
-      end_date: end.toISOString(),
-      country: countries[Math.floor(Math.random() * countries.length)],
-      branch: branches[Math.floor(Math.random() * branches.length)]
-    })
-  }
-
-  return data
-}
-
-const mockWorkers = generateMockData(300)
-
-const durations = mockWorkers.map(d => {
-  const start = new Date(d.start_date)
-  const end = new Date(d.end_date)
-  return (end - start) / (1000 * 60 * 60 * 24 * 30)
-})
-
 const bins = [
   { label: '0-3', min: 0, max: 3 },
   { label: '3-6', min: 3, max: 6 },
   { label: '6-12', min: 6, max: 12 },
-  { label: '12-24', min: 12, max: 24 },
+  { label: '12-18', min: 12, max: 18 },
+  { label: '18-24', min: 18, max: 24 },
   { label: '24+', min: 24, max: Infinity }
 ]
 
-const counts = bins.map(bin =>
-  durations.filter(d => d >= bin.min && d < bin.max).length
-)
+const workers = computed(() => {
+  const features = store.geojson?.features ?? []
 
-function getMonthlyTimeline(workers, startYear = 2023, endYear = 2026) {
+  return features
+    .map(feature => feature.properties)
+    .filter(worker => worker?.startdate && worker?.enddate)
+    .filter(worker => {
+      const matchesCountry =
+        !store.country || worker.country_code === store.country
+
+      const matchesBranch =
+        !store.branch || worker.sni_code === store.branch
+
+      return matchesCountry && matchesBranch
+    })
+})
+
+const histogramCounts = computed(() => {
+  const durations = workers.value.map(worker => {
+    const start = new Date(worker.startdate)
+    const end = new Date(worker.enddate)
+
+    return (end - start) / (1000 * 60 * 60 * 24 * 30.44)
+  })
+
+  return bins.map(bin =>
+    durations.filter(d => d >= bin.min && d < bin.max).length
+  )
+})
+
+const timelineData = computed(() => {
   const labels = []
   const values = []
+
+  const startYear = store.year ?? 2023
+  const endYear = store.year ?? 2026
 
   for (let year = startYear; year <= endYear; year++) {
     for (let month = 0; month < 12; month++) {
       const current = new Date(year, month, 1)
       const label = `${year}-${String(month + 1).padStart(2, '0')}`
 
-      const activeCount = workers.filter(worker => {
-        const start = new Date(worker.start_date)
-        const end = new Date(worker.end_date)
+      const activeCount = workers.value.filter(worker => {
+        const start = new Date(worker.startdate)
+        const end = new Date(worker.enddate)
+
         return start <= current && end >= current
       }).length
 
@@ -95,17 +89,13 @@ function getMonthlyTimeline(workers, startYear = 2023, endYear = 2026) {
   }
 
   return { labels, values }
-}
-
-const timelineData = getMonthlyTimeline(mockWorkers, 2023, 2026)
+})
 
 function buildHistogramOption() {
   return {
     tooltip: {
       trigger: 'axis',
-      axisPointer: {
-        type: 'shadow'
-      }
+      axisPointer: { type: 'shadow' }
     },
     grid: {
       left: '8%',
@@ -127,7 +117,7 @@ function buildHistogramOption() {
     series: [
       {
         type: 'bar',
-        data: counts,
+        data: histogramCounts.value,
         barWidth: '60%',
         itemStyle: {
           color: '#14B8A6',
@@ -148,14 +138,14 @@ function buildTimelineOption() {
       trigger: 'axis'
     },
     grid: {
-      left: '10',
+      left: '10%',
       right: '4%',
       top: '10%',
       bottom: '18%'
     },
     xAxis: {
       type: 'category',
-      data: timelineData.labels,
+      data: timelineData.value.labels,
       axisLabel: {
         rotate: 45,
         interval: 2
@@ -168,7 +158,7 @@ function buildTimelineOption() {
     series: [
       {
         type: 'line',
-        data: timelineData.values,
+        data: timelineData.value.values,
         smooth: true,
         symbol: 'circle',
         symbolSize: 6,
@@ -187,23 +177,40 @@ function buildTimelineOption() {
   }
 }
 
-function resizeCharts() {
-  if (histogramChart) histogramChart.resize()
-  if (timelineChart) timelineChart.resize()
+function updateCharts() {
+  histogramChart?.setOption(buildHistogramOption(), true)
+  timelineChart?.setOption(buildTimelineOption(), true)
 }
+
+function resizeCharts() {
+  histogramChart?.resize()
+  timelineChart?.resize()
+}
+
+watch(
+  () => [store.geojson, store.country, store.branch, store.year],
+  () => {
+    updateCharts()
+  },
+  { deep: true }
+)
 
 onMounted(async () => {
   await nextTick()
 
+  if (!store.geojson && !store.loadingGeojson) {
+    await store.loadGeojson()
+  }
+
   if (histogramEl.value) {
     histogramChart = echarts.init(histogramEl.value)
-    histogramChart.setOption(buildHistogramOption())
   }
 
   if (timelineEl.value) {
     timelineChart = echarts.init(timelineEl.value)
-    timelineChart.setOption(buildTimelineOption())
   }
+
+  updateCharts()
 
   window.addEventListener('resize', resizeCharts)
 })
@@ -211,15 +218,11 @@ onMounted(async () => {
 onUnmounted(() => {
   window.removeEventListener('resize', resizeCharts)
 
-  if (histogramChart) {
-    histogramChart.dispose()
-    histogramChart = null
-  }
+  histogramChart?.dispose()
+  timelineChart?.dispose()
 
-  if (timelineChart) {
-    timelineChart.dispose()
-    timelineChart = null
-  }
+  histogramChart = null
+  timelineChart = null
 })
 </script>
 
