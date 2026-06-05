@@ -36,6 +36,7 @@ const companyGeoJsonLayer = shallowRef(null)
 const countriesLayer = shallowRef(null)
 const countryLabelsLayer = shallowRef(null)
 const durationLegend = shallowRef(null)
+const countryLegend = shallowRef(null)
 
 const countriesData = ref(null)
 const mapReady = ref(false)
@@ -145,7 +146,7 @@ function renderDurationLegend(min, max) {
     const div = L.DomUtil.create('div', 'duration-legend')
 
     div.innerHTML = `
-      <div class="legend-title">Average days</div>
+      <div class="legend-title">Average stay (days)</div>
 
       ${ranges.map(([from, to]) => {
         const mid = (from + to) / 2
@@ -164,6 +165,29 @@ function renderDurationLegend(min, max) {
     return div
   }
   durationLegend.value.addTo(map.value)
+}
+
+function renderCountryLegend() {
+  countryLegend.value?.remove()
+
+  countryLegend.value = L.control({ position: 'bottomleft' })
+
+  countryLegend.value.onAdd = () => {
+    const div = L.DomUtil.create('div', 'duration-legend')
+
+    div.innerHTML = `
+      <div class="legend-title">${store.country}</div>
+      <div class="legend-row">
+        <span
+          class="legend-point"
+          style="background:rgba(102,153,255,0.8);border-color:rgba(255,255,255,0.9)"
+        ></span>
+        <span>At least 1 worker</span>
+      </div>
+    `
+    return div
+  }
+  countryLegend.value.addTo(map.value)
 }
 
 function buildPresentCountryLookup(pointsData) {
@@ -248,7 +272,6 @@ function renderCountries(countryLookup) {
             })
           }).addTo(countryLabelsLayer.value)
         }
-
         return
       }
 
@@ -281,8 +304,8 @@ function buildCompanyLayer(pointsData) {
 
   function getRadius(count) {
     const n = Number(count) || 1
-    const minRadius = 4
-    const maxRadius = 14
+    const minRadius = 6
+    const maxRadius = 18
 
     return minRadius + (Math.sqrt(n) / Math.sqrt(maxCount)) * (maxRadius - minRadius)
   }
@@ -294,7 +317,12 @@ function buildCompanyLayer(pointsData) {
   const minDuration = Math.min(...durations)
   const maxDuration = Math.max(...durations)
 
-  renderDurationLegend(minDuration, maxDuration)
+  if (!store.country) {
+    renderDurationLegend(minDuration, maxDuration)
+  } else {
+    durationLegend.value?.remove()
+    durationLegend.value = null
+  }
 
   return L.geoJSON(
     {
@@ -326,7 +354,7 @@ function buildCompanyLayer(pointsData) {
 
         layer.bindPopup(`
           <strong>${country}</strong><br>
-          Count: ${count}<br>
+          Workers: ${count}<br>
           Average: ${props.duration_avg ? props.duration_avg + ' days' : 'N/A'}
         `)
       }
@@ -361,10 +389,19 @@ watch(
   (country) => {
     if (!map.value) return
 
-    // Country unselected -> zoom out
+    // Country selected - zoom and show legend
+    if (country) {
+      durationLegend.value?.remove()
+      durationLegend.value = null
+      renderCountryLegend()
+    } else if (store.geojson) {
+      refreshCompany(store.geojson)
+    }
     if (!country) {
+      countryLegend.value?.remove()
+      countryLegend.value = null
       map.value.flyTo(DEFAULT_CENTER, DEFAULT_ZOOM, {
-        duration: 0.8
+        duration: 0.5
       })
       return
     }
