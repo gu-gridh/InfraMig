@@ -7,6 +7,8 @@ export const useStore = defineStore('company', () => {
     const country = ref()
     const branch = ref()
     const year = ref(null)
+    const coordinates = ref([30, 3])
+    const zoom = ref(3)
     const geojson = ref(null)
     const loadingGeojson = ref(false)
 
@@ -89,5 +91,7 @@ export const useStore = defineStore('company', () => {
         geojson, 
         loadingGeojson, 
         loadGeojson, 
+        coordinates,
+        zoom
     }
 })

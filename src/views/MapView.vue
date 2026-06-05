@@ -118,7 +118,7 @@ function getDurationColor(durationAvg, min, max) {
     Math.min(1, (value - min) / (max - min || 1))
   )
 
-  // soft pink -> dark pink
+  // colors for interpolation: #6699ff to #6600ff
   const start = [102,153,255] // #6699ff
   const end = [102,0,255]     // #6600ff
 
@@ -344,12 +344,53 @@ function refreshCompany(pointsData) {
 }
 
 watch(
-  [() => store.geojson, mapReady],
+  [() => store.geojson, mapReady,],
   ([geojson, ready]) => {
     if (!ready || !geojson) return
     refreshCompany(geojson)
   },
   { immediate: true }
+)
+
+//update store.coordinates when country changes
+const DEFAULT_CENTER = [30, 3]
+const DEFAULT_ZOOM = 3
+
+watch(
+  () => store.country,
+  (country) => {
+    if (!map.value) return
+
+    // Country unselected -> zoom out
+    if (!country) {
+      map.value.flyTo(DEFAULT_CENTER, DEFAULT_ZOOM, {
+        duration: 0.8
+      })
+      return
+    }
+
+    // Find country polygon
+    const feature = countriesData.value?.features?.find(f => {
+      const props = f.properties || {}
+
+      return (
+        String(extractCountryCode(props)).toUpperCase() === String(country).toUpperCase() ||
+        normalizeName(extractCountryName(props)) === normalizeName(country)
+      )
+    })
+
+    if (!feature) return
+
+    const bounds = L.geoJSON(feature).getBounds()
+
+    if (bounds.isValid()) {
+      map.value.flyToBounds(bounds, {
+        padding: [40, 40],
+        maxZoom: 6,
+        duration: 0.8
+      })
+    }
+  }
 )
 
 onMounted(async () => {
@@ -364,7 +405,7 @@ onMounted(async () => {
       [90, 180]
     ],
     maxBoundsViscosity: 1.0
-  }).setView([30, 3], 3)
+  }).setView(store.coordinates, store.zoom)
 
   const pane = map.value.createPane('countriesPane')
   pane.style.zIndex = 200
