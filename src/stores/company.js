@@ -5,6 +5,7 @@ export const useStore = defineStore('company', () => {
   // state should be either 'ssab' or 'stegra', geojson file loaded here based on this
     const company = ref('stegra')
     const country = ref()
+    const fullName = ref('')
     const branch = ref()
     const year = ref(null)
     const coordinates = ref([30, 3])
@@ -92,6 +93,7 @@ export const useStore = defineStore('company', () => {
         loadingGeojson, 
         loadGeojson, 
         coordinates,
-        zoom
+        zoom,
+        fullName
     }
 })

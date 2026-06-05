@@ -176,7 +176,7 @@ function renderCountryLegend() {
     const div = L.DomUtil.create('div', 'duration-legend')
 
     div.innerHTML = `
-      <div class="legend-title">${store.country}</div>
+      <div class="legend-title">${store.fullName}</div>
       <div class="legend-row">
         <span
           class="legend-point"
