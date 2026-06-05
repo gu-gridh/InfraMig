@@ -27,6 +27,7 @@ import * as L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import Filters from '@/components/Filters.vue'
 import { useStore } from '@/stores/company'
+import * as statsFunctions from '@/assets/statsFunctions.js'
 
 const store = useStore()
 
@@ -394,6 +395,7 @@ watch(
       durationLegend.value?.remove()
       durationLegend.value = null
       renderCountryLegend()
+      statsFunctions.calcSNI(store.workers)
     } else if (store.geojson) {
       refreshCompany(store.geojson)
     }
