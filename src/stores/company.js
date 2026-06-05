@@ -51,7 +51,6 @@ export const useStore = defineStore('company', () => {
             if (features.length > 0) {
                 //add each feature.properties to workers ref
                 workers.value = features.map(f => f.properties)
-                console.log('Workers for country', newCountry, workers.value)
             }
         }
     })
