@@ -161,23 +161,26 @@ function interpolateColor(color1, color2, factor) {
   return `rgb(${result.join(',')})`
 }
 
-function getDurationColor(durationAvg, min, max) {
-  const value = Number(durationAvg)
+const DURATION_COLORS = [
+  '#d73027',
+  '#fc8d59',
+  '#fee08b',
+  '#d9ef8b',
+  '#91cf60',
+  '#66c2a5',
+  '#3288bd',
+  '#5e4fa2'
+]
 
-  if (!Number.isFinite(value)) {
-    return '#d4d4d8'
-  }
-
-  const normalized = Math.max(
-    0,
-    Math.min(1, (value - min) / (max - min || 1))
-  )
-
-  // colors for interpolation: #6699ff to #6600ff
-  const start = [102,153,255] // #6699ff
-  const end = [102,0,255]     // #6600ff
-
-  return interpolateColor(start, end, normalized)
+function getDurationColor(days) {
+  if (days < 50) return '#d73027'
+  if (days < 100) return '#fc8d59'
+  if (days < 150) return '#fee08b'
+  if (days < 200) return '#d9ef8b'
+  if (days < 300) return '#91cf60'
+  if (days < 500) return '#66c2a5'
+  if (days < 1000) return '#3288bd'
+  return '#5e4fa2'
 }
 
 function renderDurationLegend(min, max) {
