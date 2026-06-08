@@ -27,6 +27,8 @@ import * as L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import Filters from '@/components/Filters.vue'
 import { useStore } from '@/stores/company'
+import * as statsFunctions from '@/assets/statsFunctions.js'
+import { getCountryDurationAverages } from '@/assets/statsFunctions.js'
 
 const store = useStore()
 
@@ -36,6 +38,8 @@ const companyGeoJsonLayer = shallowRef(null)
 const countriesLayer = shallowRef(null)
 const countryLabelsLayer = shallowRef(null)
 const durationLegend = shallowRef(null)
+const countryLegend = shallowRef(null)
+const SNI_stats = ref(null)
 
 const countriesData = ref(null)
 const mapReady = ref(false)
@@ -59,6 +63,58 @@ function normalizeName(value) {
   return String(value ?? '').trim().toLowerCase()
 }
 
+function featureMatchesCountry(feature, country) {
+  const props = feature.properties || {}
+
+  return (
+    String(extractCountryCode(props)).toUpperCase() === String(country).toUpperCase() ||
+    normalizeName(extractCountryName(props)) === normalizeName(country)
+  )
+}
+
+function buildPieIcon(stats) {
+  const entries = Object.entries(stats || {})
+    .map(([code, data]) => [
+      code,
+      Number(data?.percentage || 0)
+    ])
+    .filter(([, value]) => value > 0)
+
+  const total = entries.reduce((sum, [, value]) => sum + value, 0)
+
+  if (!total) {
+    return L.divIcon({
+      className: 'sni-pie-marker',
+      html: `<div class="sni-pie empty"></div>`,
+      iconSize: [44, 44],
+      iconAnchor: [22, 22]
+    })
+  }
+
+  let current = 0
+
+  const gradient = entries.map(([code, percentage]) => {
+    const start = current
+    const end = current + percentage
+    current = end
+
+    return `${BRANCH_COLORS[code] || '#999'} ${start}% ${end}%`
+  }).join(', ')
+
+  return L.divIcon({
+    className: 'sni-pie-marker',
+    html: `
+      <div
+        class="sni-pie"
+        style="background: conic-gradient(${gradient})"
+      ></div>
+    `,
+    iconSize: [44, 44],
+    iconAnchor: [22, 22]
+  })
+}
+
+//Since country label can be misread
 const COUNTRY_LABEL_OVERRIDES = {
   FRA: { name: 'France', latlng: [46.5, 2.5] },
   NOR: { name: 'Norway', latlng: [64.5, 11] },
@@ -94,35 +150,26 @@ function extractCountryName(props = {}) {
   )
 }
 
-function interpolateColor(color1, color2, factor) {
-  const result = color1.slice()
+const DURATION_COLORS = [
+  '#d73027',
+  '#fc8d59',
+  '#fee08b',
+  '#d9ef8b',
+  '#91cf60',
+  '#66c2a5',
+  '#3288bd',
+  '#5e4fa2'
+]
 
-  for (let i = 0; i < 3; i++) {
-    result[i] = Math.round(
-      result[i] + factor * (color2[i] - color1[i])
-    )
-  }
-
-  return `rgb(${result.join(',')})`
-}
-
-function getDurationColor(durationAvg, min, max) {
-  const value = Number(durationAvg)
-
-  if (!Number.isFinite(value)) {
-    return '#d4d4d8'
-  }
-
-  const normalized = Math.max(
-    0,
-    Math.min(1, (value - min) / (max - min || 1))
-  )
-
-  // soft pink -> dark pink
-  const start = [102,153,255] // #6699ff
-  const end = [102,0,255]     // #6600ff
-
-  return interpolateColor(start, end, normalized)
+function getDurationColor(days) {
+  if (days < 50) return '#d73027'
+  if (days < 100) return '#fc8d59'
+  if (days < 150) return '#fee08b'
+  if (days < 200) return '#d9ef8b'
+  if (days < 300) return '#91cf60'
+  if (days < 500) return '#66c2a5'
+  if (days < 1000) return '#3288bd'
+  return '#5e4fa2'
 }
 
 function renderDurationLegend(min, max) {
@@ -145,7 +192,7 @@ function renderDurationLegend(min, max) {
     const div = L.DomUtil.create('div', 'duration-legend')
 
     div.innerHTML = `
-      <div class="legend-title">Average days</div>
+      <div class="legend-title">Average stay (days)</div>
 
       ${ranges.map(([from, to]) => {
         const mid = (from + to) / 2
@@ -164,6 +211,41 @@ function renderDurationLegend(min, max) {
     return div
   }
   durationLegend.value.addTo(map.value)
+}
+
+//branch legend colors
+const BRANCH_COLORS = {
+  'C': '#f87171',
+  'F': '#60a5fa',
+  'H': '#34d399',
+  'N': '#d4d4d8',
+  'O': '#fbbf24',
+}
+
+function renderCountryLegend() {
+  countryLegend.value?.remove()
+  countryLegend.value = L.control({ position: 'bottomleft' })
+  countryLegend.value.onAdd = () => {
+    const div = L.DomUtil.create('div', 'duration-legend')
+
+    div.innerHTML = `
+      <div class="legend-title">${store.fullName}</div>
+      <div class="legend-row">
+        <!-- All branch colors -->
+        ${Object.entries(BRANCH_COLORS).map(([code, color]) => `
+          <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 4px;">
+            <span
+              class="legend-point"
+              style="background:${color}; width: 16px; height: 16px;"
+            ></span>
+            <span>${code}</span>
+          </div>
+        `).join('')}
+      </div>
+    `
+    return div
+  }
+  countryLegend.value.addTo(map.value)
 }
 
 function buildPresentCountryLookup(pointsData) {
@@ -248,7 +330,6 @@ function renderCountries(countryLookup) {
             })
           }).addTo(countryLabelsLayer.value)
         }
-
         return
       }
 
@@ -262,13 +343,20 @@ function renderCountries(countryLookup) {
   }).addTo(map.value)
 }
 
-function buildCompanyLayer(pointsData) {
+  function buildCompanyLayer(pointsData) {
+    let features = pointsData.features ?? []
+
+    if (store.country) {
+      features = features.filter(feature =>
+        featureMatchesCountry(feature, store.country)
+      )
+  }
+
   const seenCountries = new Set()
 
-  const uniqueCountryFeatures = (pointsData.features ?? []).filter((feature) => {
+  const uniqueCountryFeatures = features.filter((feature) => {
     const props = feature.properties || {}
     const key = extractCountryCode(props) || normalizeName(extractCountryName(props))
-
     if (!key || seenCountries.has(key)) return false
     seenCountries.add(key)
     return true
@@ -281,20 +369,29 @@ function buildCompanyLayer(pointsData) {
 
   function getRadius(count) {
     const n = Number(count) || 1
-    const minRadius = 4
-    const maxRadius = 14
+    const minRadius = 6
+    const maxRadius = 20
 
     return minRadius + (Math.sqrt(n) / Math.sqrt(maxCount)) * (maxRadius - minRadius)
   }
 
-  const durations = uniqueCountryFeatures
-    .map(f => Number(f.properties?.duration_avg))
-    .filter(v => Number.isFinite(v))
+  const durationData = getCountryDurationAverages({
+    ...pointsData,
+    features: uniqueCountryFeatures
+  })
+  
+  const durations = durationData.map(d => d.avgDuration)
 
   const minDuration = Math.min(...durations)
+
   const maxDuration = Math.max(...durations)
 
-  renderDurationLegend(minDuration, maxDuration)
+  if (!store.country) {
+    renderDurationLegend(minDuration, maxDuration)
+  } else {
+    durationLegend.value?.remove()
+    durationLegend.value = null
+  }
 
   return L.geoJSON(
     {
@@ -304,21 +401,31 @@ function buildCompanyLayer(pointsData) {
     {
       pane: 'pointsPane',
       pointToLayer: (feature, latlng) => {
-        const count = feature.properties?.country_count ?? 1
-        const durationAvg = feature.properties?.duration_avg
-        return L.circleMarker(latlng, {
-          radius: getRadius(count),
-          fillColor: getDurationColor(
-            durationAvg,
-            minDuration,
-            maxDuration
-          ),
-          color: '#ffffff',
-          weight: 1,
-          opacity: 1,
-          fillOpacity: 0.8
-        })
-      },
+
+  if (store.country) {
+    const sniStats = statsFunctions.calcSNI(store.workers)
+    return L.marker(latlng, {
+      pane: 'pointsPane',
+      icon: buildPieIcon(sniStats)
+    })
+  }
+
+  const count = feature.properties?.country_count ?? 1
+
+  const durationAvg = feature.properties?.duration_avg
+    return L.circleMarker(latlng, {
+      radius: getRadius(count),
+      fillColor: getDurationColor(
+        durationAvg,
+        minDuration,
+        maxDuration
+      ),
+      color: '#ffffff',
+      weight: 1,
+      opacity: 1,
+      fillOpacity: 0.9
+    })
+  },
       onEachFeature: (feature, layer) => {
         const props = feature.properties || {}
         const country = extractCountryName(props) || 'Unknown country'
@@ -326,7 +433,7 @@ function buildCompanyLayer(pointsData) {
 
         layer.bindPopup(`
           <strong>${country}</strong><br>
-          Count: ${count}<br>
+          Workers: ${count}<br>
           Average: ${props.duration_avg ? props.duration_avg + ' days' : 'N/A'}
         `)
       }
@@ -344,12 +451,75 @@ function refreshCompany(pointsData) {
 }
 
 watch(
-  [() => store.geojson, mapReady],
+  [() => store.geojson, mapReady,],
   ([geojson, ready]) => {
     if (!ready || !geojson) return
     refreshCompany(geojson)
   },
   { immediate: true }
+)
+
+//update store.coordinates when country changes
+const DEFAULT_CENTER = [30, 3]
+const DEFAULT_ZOOM = 3
+
+watch(
+  () => store.country,
+  (country) => {
+    if (!map.value) return
+
+    if (store.geojson) {
+      refreshCompany(store.geojson)
+    }
+
+    if (country) {
+      durationLegend.value?.remove()
+      durationLegend.value = null
+      renderCountryLegend()
+      SNI_stats.value = statsFunctions.calcSNI(store.workers)
+    } else {
+      countryLegend.value?.remove()
+      countryLegend.value = null
+      map.value.flyTo(DEFAULT_CENTER, DEFAULT_ZOOM, {
+        duration: 0.5
+      })
+      return
+    }
+
+    const feature = countriesData.value?.features?.find(f => {
+      const props = f.properties || {}
+
+      return (
+        String(extractCountryCode(props)).toUpperCase() === String(country).toUpperCase() ||
+        normalizeName(extractCountryName(props)) === normalizeName(country)
+      )
+    })
+
+    if (!feature) return
+
+    const bounds = L.geoJSON(feature).getBounds()
+
+    if (bounds.isValid()) {
+      map.value.flyToBounds(bounds, {
+        padding: [40, 40],
+        maxZoom: 6,
+        duration: 0.8
+      })
+    }
+  }
+)
+
+watch(
+  () => store.company,
+  async () => {
+    if (!mapReady.value) return
+
+    await store.loadGeojson()
+
+    if (store.geojson) {
+      refreshCompany(store.geojson)
+    }
+  }
 )
 
 onMounted(async () => {
@@ -364,7 +534,7 @@ onMounted(async () => {
       [90, 180]
     ],
     maxBoundsViscosity: 1.0
-  }).setView([30, 3], 3)
+  }).setView(store.coordinates, store.zoom)
 
   const pane = map.value.createPane('countriesPane')
   pane.style.zIndex = 200
@@ -393,8 +563,6 @@ onMounted(async () => {
     opacity: 1,
     fillOpacity: 0.9
   }).addTo(map.value)
-
-  renderDurationLegend()
 
   mapReady.value = true
 
@@ -513,5 +681,22 @@ html, body, #app {
   display: inline-block;
   border: 1px solid rgba(255,255,255,0.9);
   flex-shrink: 0;
+}
+
+.sni-pie-marker {
+  background: transparent;
+  border: none;
+}
+
+.sni-pie {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 2px solid white;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+}
+
+.sni-pie.empty {
+  background: #d4d4d8;
 }
 </style>

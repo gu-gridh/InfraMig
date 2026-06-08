@@ -5,9 +5,17 @@
 <template>
   <div class="container">
     <div class="home">
-      Lorem ipsum dolor sit amet, consectetuer adipiscing elit. Aenean commodo ligula eget dolor. Aenean massa. Cum sociis natoque penatibus et magnis dis parturient montes, nascetur ridiculus mus. Donec quam felis, ultricies nec, pellentesque eu, pretium quis, sem. Nulla consequat massa quis enim. Donec pede justo, fringilla vel, aliquet nec, vulputate eget, arcu. In enim justo, rhoncus ut, imperdiet a, venenatis vitae, justo. Nullam dictum felis eu pede mollis pretium. Integer tincidunt. Cras dapibus. Vivamus elementum semper nisi. Aenean vulputate eleifend tellus. Aenean leo ligula, porttitor eu, consequat vitae, eleifend ac, enim. Aliquam lorem ante, dapibus in, viverra quis, feugiat a, tellus. Phasellus viverra nulla ut metus varius laoreet. Quisque rutrum. Aenean imperdiet. Etiam ultricies nisi vel augue. Curabitur ullamcorper ultricies nisi. Nam eget dui. Etiam rhoncus. Maecenas tempus, tellus eget condimentum rhoncus, sem quam semper libero, sit amet adipiscing sem neque sed ipsum. Nam quam nunc, blandit vel, luctus pulvinar, hendrerit id, lorem. Maecenas nec odio et ante tincidunt tempus. Donec vitae sapien ut libero venenatis faucibus. Nullam quis ante. Etiam sit amet orci eget eros faucibus tincidunt. Duis leo. Sed fringilla mauris sit amet nibh. Donec sodales sagittis magna. Sed consequat, leo eget bibendum sodales, augue velit cursus nunc,
+    <p>
+      Det Nya Gröna Norrland lockar stora investeringar till norra Sverige och siktar på att bli en motor för grön innovation. En viktig del i denna omställning är byggandet av fabriker och infrastruktur, där tillfälliga migrantarbetare spelar en central, men ofta osynlig, roll. Projektet belyser deras betydelse och analyserar den infrastruktur som möjliggör och formar tillfällig arbetskraftsmigration samt de platser som den bidrar till att skapa. Projektet undersöker särskilt företagen Stegra, Boden, och SSAB, Luleå, i deras uppbyggnad av stålverk som producerar sk. grönt stål.
+    </p>  
+    <p>
+      Här visar vi en karta över internationaliseringen av underleverantörer vid Stegra och SSAB. Statistiken bygger på Utstationeringsregistret, Arbetsmiljöverket, och innefattar samtliga arbetare som är utstationerade till Sverige 2021-2025. Utstationerade arbetare innebär internationell arbetskraft som anställts av en arbetsgivare i ett annat land, som utför en tjänst hos en mottagare i Sverige under en begränsad tid. Eftersom arbetskraften inom byggbranschen många gånger cirkulerar mellan ett flertal arbetsgivare i olika länder säger kartan ingenting om arbetskraftens ursprung, utan endast om deras arbetsgivares ursprung, dvs. Stegras och SSAB:s underleverantörer.
+    </p>
+    <p>
+      För att kunna inleda sin produktion av grönt stål bygger såväl Stegra som SSAB storskaliga industrier, som innebär att tusentals temporära arbetare kommer till platserna för att utföra kontrakterat arbete inom sitt specialistområde. De båda företagen befinner sig i olika faser av uppbyggnadsarbetet. Medan Stegras byggstart skedde 2021 och planera produktionsstart 2027, inledde SSAB arbetet 2024 och planerar för start av produktionen 2029. Kartorna för de båda företagen visar således olika skeden av byggnadsarbetet, och kartan för Stegra innehåller därför betydligt fler observationer. Kartorna planeras att uppdateras i ett senare skede, när de båda företagen har kommit längre i sina respektive byggprocesser.
+    </p>
     </div>
-    <p><v-btn href="/explore">Explore</v-btn></p>
+    <p style="text-align: center; margin-top: 20px;"><v-btn href="/explore">Explore</v-btn></p>
   </div>  
 </template>
 
@@ -20,13 +28,13 @@
   column-gap: 40px;
   max-width: 1200px;
   padding: 0 20px;
-  font-size: 18px;
+  font-size: 16px;
   line-height: 1.6;
   color: #333;
 }
 
 p {
-  text-align: center;
-  margin-top: 20px;
+  text-align: left;
+  margin-bottom: 20px;
 }
 </style>

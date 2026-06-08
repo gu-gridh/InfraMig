@@ -4,9 +4,9 @@
 
     <v-form>
       <div class="filter-group">
-        <!-- if item-title is 'all' dont show text-->
-        <v-select
+        <v-autocomplete
           v-model="selectedCountry"
+          v-model:search="countrySearch"
           :items="countries"
           item-title="countries_eng"
           item-value="country_code"
@@ -89,6 +89,7 @@ const selectedCountry = ref(null)
 const selectedYear = ref(null)
 const selectedBranch = ref(null)
 const expanded = ref(false)
+const countrySearch = ref('')
 
 const filtersEl = ref(null)
 
@@ -139,47 +140,28 @@ onMounted(async () => {
 
 })
 
-watch(
-  [selectedCountry, selectedYear, selectedBranch],
-  ([country, year, branch]) => {
-    console.log('Filters changed:', { country, year, branch })
-    store.country = country
+watch(selectedCountry, (country) => {
+  store.country = country ?? null
+  store.fullName = countries.value.find(c => c.country_code === country)?.countries_eng || ''
+})
+
+watch(selectedYear, (year) => {
+  if (year == null) {
+    store.resetYear()
+    selectedYear.value = store.year
+  } else {
     store.year = year
+  }
+})
+
+watch(selectedBranch, (branch) => {
+  if (branch == null) {
+    store.resetBranch()
+    selectedBranch.value = store.branch
+  } else {
     store.branch = branch
   }
-)
-
-watch(
-  [selectedCountry, selectedYear, selectedBranch],
-  ([country, year, branch]) => {
-    if (country == null) {
-      store.resetCountry()
-      selectedCountry.value = store.country
-    } else {
-      store.country = country
-    }
-
-    if (year == null) {
-      store.resetYear()
-      selectedYear.value = store.year
-    } else {
-      store.year = year
-    }
-
-    if (branch == null) {
-      store.resetBranch()
-      selectedBranch.value = store.branch
-    } else {
-      store.branch = branch
-    }
-
-    console.log('Filters changed:', {
-      country: selectedCountry.value,
-      year: selectedYear.value,
-      branch: selectedBranch.value
-    })
-  }
-)
+})
 
 </script>
 
