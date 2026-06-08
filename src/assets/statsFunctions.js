@@ -27,3 +27,31 @@ export const calcSNI = (workers) => {
     console.log('Branch counts:', branchCounts)
     return branchCounts
 }
+
+// calc average duration of migration for each country in the geojson, return sorted by duration descending
+
+export function getCountryDurationAverages(geojson) {
+  const features = geojson?.features ?? []
+
+  const seen = new Set()
+
+  return features
+    .map(feature => {
+      const props = feature.properties ?? {}
+
+      return {
+        country: props.country_en || props.country || props.name_en || props.ADMIN || props.name || 'Unknown',
+        countryCode: props.ADM0_A3 || props.country_a3 || props.country_code || props.ISO_A3 || null,
+        avgDuration: Number(props.duration_avg),
+        workers: Number(props.country_count) || 1
+      }
+    })
+    .filter(row => Number.isFinite(row.avgDuration))
+    .filter(row => {
+      const key = row.countryCode || row.country.toLowerCase()
+      if (seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
+    .sort((a, b) => b.avgDuration - a.avgDuration)
+}

@@ -28,6 +28,7 @@ import 'leaflet/dist/leaflet.css'
 import Filters from '@/components/Filters.vue'
 import { useStore } from '@/stores/company'
 import * as statsFunctions from '@/assets/statsFunctions.js'
+import { getCountryDurationAverages } from '@/assets/statsFunctions.js'
 
 const store = useStore()
 
@@ -113,6 +114,7 @@ function buildPieIcon(stats) {
   })
 }
 
+//Since country label can be misread
 const COUNTRY_LABEL_OVERRIDES = {
   FRA: { name: 'France', latlng: [46.5, 2.5] },
   NOR: { name: 'Norway', latlng: [64.5, 11] },
@@ -156,7 +158,6 @@ function interpolateColor(color1, color2, factor) {
       result[i] + factor * (color2[i] - color1[i])
     )
   }
-
   return `rgb(${result.join(',')})`
 }
 
@@ -351,19 +352,15 @@ function renderCountries(countryLookup) {
       })
     }
   }).addTo(map.value)
-
-  //TODO when store.country is set, show only that marker
-
 }
 
   function buildCompanyLayer(pointsData) {
+    let features = pointsData.features ?? []
 
-  let features = pointsData.features ?? []
-
-  if (store.country) {
-    features = features.filter(feature =>
-      featureMatchesCountry(feature, store.country)
-    )
+    if (store.country) {
+      features = features.filter(feature =>
+        featureMatchesCountry(feature, store.country)
+      )
   }
 
   const seenCountries = new Set()
@@ -389,11 +386,15 @@ function renderCountries(countryLookup) {
     return minRadius + (Math.sqrt(n) / Math.sqrt(maxCount)) * (maxRadius - minRadius)
   }
 
-  const durations = uniqueCountryFeatures
-    .map(f => Number(f.properties?.duration_avg))
-    .filter(v => Number.isFinite(v))
+  const durationData = getCountryDurationAverages({
+    ...pointsData,
+    features: uniqueCountryFeatures
+  })
+  
+  const durations = durationData.map(d => d.avgDuration)
 
   const minDuration = Math.min(...durations)
+
   const maxDuration = Math.max(...durations)
 
   if (!store.country) {
@@ -573,8 +574,6 @@ onMounted(async () => {
     opacity: 1,
     fillOpacity: 0.9
   }).addTo(map.value)
-
-  renderDurationLegend()
 
   mapReady.value = true
 

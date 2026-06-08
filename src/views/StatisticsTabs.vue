@@ -17,7 +17,7 @@
                 <v-sheet class="pa-5"><ChartYearly /></v-sheet>
                 </v-tabs-window-item>
                 <v-tabs-window-item value="three">
-                <v-sheet class="pa-5">Three</v-sheet>
+                <v-sheet class="pa-5"><ChartCountry /></v-sheet>
                 </v-tabs-window-item>
             </v-tabs-window>
         </v-sheet>
@@ -28,6 +28,7 @@
 import { ref } from 'vue'
 import ChartYearly from '@/components/ChartYearly.vue';
 import ChartDuration from '@/components/ChartDuration.vue';
+import ChartCountry from '@/components/ChartCountry.vue';
 
 const tab = ref('one')
 </script>
