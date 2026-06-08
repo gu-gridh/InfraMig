@@ -21,7 +21,7 @@ export const calcSNI = (workers) => {
     //count percentage of workers in each branch
     for (const branch in branchCounts) {
         const count = branchCounts[branch]
-        const percentage = ((count / totalWorkers) * 100).toFixed(2)
+        const percentage = ((count / totalWorkers) * 100).toFixed(0)
         branchCounts[branch] = { count, percentage }
     }
     console.log('Branch counts:', branchCounts)

@@ -38,6 +38,7 @@ const countriesLayer = shallowRef(null)
 const countryLabelsLayer = shallowRef(null)
 const durationLegend = shallowRef(null)
 const countryLegend = shallowRef(null)
+const SNI_stats = ref(null)
 
 const countriesData = ref(null)
 const mapReady = ref(false)
@@ -59,6 +60,57 @@ function getCompanyConfig(company) {
 
 function normalizeName(value) {
   return String(value ?? '').trim().toLowerCase()
+}
+
+function featureMatchesCountry(feature, country) {
+  const props = feature.properties || {}
+
+  return (
+    String(extractCountryCode(props)).toUpperCase() === String(country).toUpperCase() ||
+    normalizeName(extractCountryName(props)) === normalizeName(country)
+  )
+}
+
+function buildPieIcon(stats) {
+  const entries = Object.entries(stats || {})
+    .map(([code, data]) => [
+      code,
+      Number(data?.percentage || 0)
+    ])
+    .filter(([, value]) => value > 0)
+
+  const total = entries.reduce((sum, [, value]) => sum + value, 0)
+
+  if (!total) {
+    return L.divIcon({
+      className: 'sni-pie-marker',
+      html: `<div class="sni-pie empty"></div>`,
+      iconSize: [44, 44],
+      iconAnchor: [22, 22]
+    })
+  }
+
+  let current = 0
+
+  const gradient = entries.map(([code, percentage]) => {
+    const start = current
+    const end = current + percentage
+    current = end
+
+    return `${BRANCH_COLORS[code] || '#999'} ${start}% ${end}%`
+  }).join(', ')
+
+  return L.divIcon({
+    className: 'sni-pie-marker',
+    html: `
+      <div
+        class="sni-pie"
+        style="background: conic-gradient(${gradient})"
+      ></div>
+    `,
+    iconSize: [44, 44],
+    iconAnchor: [22, 22]
+  })
 }
 
 const COUNTRY_LABEL_OVERRIDES = {
@@ -168,7 +220,17 @@ function renderDurationLegend(min, max) {
   durationLegend.value.addTo(map.value)
 }
 
+//branch legend colors
+const BRANCH_COLORS = {
+  'C': '#f87171',
+  'F': '#60a5fa',
+  'H': '#34d399',
+  'N': '#d4d4d8',
+  'O': '#fbbf24',
+}
+
 function renderCountryLegend() {
+  
   countryLegend.value?.remove()
 
   countryLegend.value = L.control({ position: 'bottomleft' })
@@ -179,11 +241,16 @@ function renderCountryLegend() {
     div.innerHTML = `
       <div class="legend-title">${store.fullName}</div>
       <div class="legend-row">
-        <span
-          class="legend-point"
-          style="background:rgba(102,153,255,0.8);border-color:rgba(255,255,255,0.9)"
-        ></span>
-        <span>At least 1 worker</span>
+        <!-- All branch colors -->
+        ${Object.entries(BRANCH_COLORS).map(([code, color]) => `
+          <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 4px;">
+            <span
+              class="legend-point"
+              style="background:${color}; width: 16px; height: 16px;"
+            ></span>
+            <span>${code}</span>
+          </div>
+        `).join('')}
       </div>
     `
     return div
@@ -284,15 +351,26 @@ function renderCountries(countryLookup) {
       })
     }
   }).addTo(map.value)
+
+  //TODO when store.country is set, show only that marker
+
 }
 
-function buildCompanyLayer(pointsData) {
+  function buildCompanyLayer(pointsData) {
+
+  let features = pointsData.features ?? []
+
+  if (store.country) {
+    features = features.filter(feature =>
+      featureMatchesCountry(feature, store.country)
+    )
+  }
+
   const seenCountries = new Set()
 
-  const uniqueCountryFeatures = (pointsData.features ?? []).filter((feature) => {
+  const uniqueCountryFeatures = features.filter((feature) => {
     const props = feature.properties || {}
     const key = extractCountryCode(props) || normalizeName(extractCountryName(props))
-
     if (!key || seenCountries.has(key)) return false
     seenCountries.add(key)
     return true
@@ -333,21 +411,31 @@ function buildCompanyLayer(pointsData) {
     {
       pane: 'pointsPane',
       pointToLayer: (feature, latlng) => {
-        const count = feature.properties?.country_count ?? 1
-        const durationAvg = feature.properties?.duration_avg
-        return L.circleMarker(latlng, {
-          radius: getRadius(count),
-          fillColor: getDurationColor(
-            durationAvg,
-            minDuration,
-            maxDuration
-          ),
-          color: '#ffffff',
-          weight: 1,
-          opacity: 1,
-          fillOpacity: 0.8
-        })
-      },
+
+  if (store.country) {
+    const sniStats = statsFunctions.calcSNI(store.workers)
+    return L.marker(latlng, {
+      pane: 'pointsPane',
+      icon: buildPieIcon(sniStats)
+    })
+  }
+
+  const count = feature.properties?.country_count ?? 1
+
+  const durationAvg = feature.properties?.duration_avg
+    return L.circleMarker(latlng, {
+      radius: getRadius(count),
+      fillColor: getDurationColor(
+        durationAvg,
+        minDuration,
+        maxDuration
+      ),
+      color: '#ffffff',
+      weight: 1,
+      opacity: 1,
+      fillOpacity: 0.8
+    })
+  },
       onEachFeature: (feature, layer) => {
         const props = feature.properties || {}
         const country = extractCountryName(props) || 'Unknown country'
@@ -390,16 +478,16 @@ watch(
   (country) => {
     if (!map.value) return
 
-    // Country selected - zoom and show legend
+    if (store.geojson) {
+      refreshCompany(store.geojson)
+    }
+
     if (country) {
       durationLegend.value?.remove()
       durationLegend.value = null
       renderCountryLegend()
-      statsFunctions.calcSNI(store.workers)
-    } else if (store.geojson) {
-      refreshCompany(store.geojson)
-    }
-    if (!country) {
+      SNI_stats.value = statsFunctions.calcSNI(store.workers)
+    } else {
       countryLegend.value?.remove()
       countryLegend.value = null
       map.value.flyTo(DEFAULT_CENTER, DEFAULT_ZOOM, {
@@ -408,7 +496,6 @@ watch(
       return
     }
 
-    // Find country polygon
     const feature = countriesData.value?.features?.find(f => {
       const props = f.properties || {}
 
@@ -428,6 +515,19 @@ watch(
         maxZoom: 6,
         duration: 0.8
       })
+    }
+  }
+)
+
+watch(
+  () => store.company,
+  async () => {
+    if (!mapReady.value) return
+
+    await store.loadGeojson()
+
+    if (store.geojson) {
+      refreshCompany(store.geojson)
     }
   }
 )
@@ -593,5 +693,22 @@ html, body, #app {
   display: inline-block;
   border: 1px solid rgba(255,255,255,0.9);
   flex-shrink: 0;
+}
+
+.sni-pie-marker {
+  background: transparent;
+  border: none;
+}
+
+.sni-pie {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 2px solid white;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+}
+
+.sni-pie.empty {
+  background: #d4d4d8;
 }
 </style>

@@ -14,6 +14,10 @@ export const useStore = defineStore('company', () => {
     const workers = ref(null)
     const loadingGeojson = ref(false)
 
+    const setCompany = (newCompany) => {
+        company.value = newCompany
+    }
+
     const loadGeojson = async (selectedCompany = company.value) => {
         if (!selectedCompany) return
 
@@ -67,6 +71,7 @@ export const useStore = defineStore('company', () => {
         coordinates,
         zoom,
         fullName,
-        workers
+        workers,
+        setCompany
     }
 })
