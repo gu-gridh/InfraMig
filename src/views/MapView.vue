@@ -150,17 +150,6 @@ function extractCountryName(props = {}) {
   )
 }
 
-function interpolateColor(color1, color2, factor) {
-  const result = color1.slice()
-
-  for (let i = 0; i < 3; i++) {
-    result[i] = Math.round(
-      result[i] + factor * (color2[i] - color1[i])
-    )
-  }
-  return `rgb(${result.join(',')})`
-}
-
 const DURATION_COLORS = [
   '#d73027',
   '#fc8d59',
@@ -234,11 +223,8 @@ const BRANCH_COLORS = {
 }
 
 function renderCountryLegend() {
-  
   countryLegend.value?.remove()
-
   countryLegend.value = L.control({ position: 'bottomleft' })
-
   countryLegend.value.onAdd = () => {
     const div = L.DomUtil.create('div', 'duration-legend')
 
@@ -384,7 +370,7 @@ function renderCountries(countryLookup) {
   function getRadius(count) {
     const n = Number(count) || 1
     const minRadius = 6
-    const maxRadius = 18
+    const maxRadius = 20
 
     return minRadius + (Math.sqrt(n) / Math.sqrt(maxCount)) * (maxRadius - minRadius)
   }
@@ -437,7 +423,7 @@ function renderCountries(countryLookup) {
       color: '#ffffff',
       weight: 1,
       opacity: 1,
-      fillOpacity: 0.8
+      fillOpacity: 0.9
     })
   },
       onEachFeature: (feature, layer) => {
