@@ -100,7 +100,7 @@ function updateChart(geojson) {
     })
 
     singleAxis.push({
-      left: 10,
+      left: 15,
       right: 20,
       type: 'category',
       boundaryGap: false,
