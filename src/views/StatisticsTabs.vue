@@ -11,13 +11,13 @@
 
             <v-tabs-window v-model="tab">
                 <v-tabs-window-item value="one">
-                <v-sheet class="pa-5"><ChartDuration /></v-sheet>
+                <v-sheet><ChartDuration /></v-sheet>
                 </v-tabs-window-item>
                 <v-tabs-window-item value="two">
-                <v-sheet class="pa-5"><ChartYearly /></v-sheet>
+                <v-sheet><ChartYearly /></v-sheet>
                 </v-tabs-window-item>
                 <v-tabs-window-item value="three" v-if="!store.country">
-                <v-sheet class="pa-5"><ChartCountry /></v-sheet>
+                <v-sheet><ChartCountry /></v-sheet>
                 </v-tabs-window-item>
             </v-tabs-window>
         </v-sheet>
@@ -34,6 +34,7 @@ import { useStore } from '@/stores/company'
 const tab = ref('one')
 
 const store = useStore()
+
 </script>
 
 <style scoped>

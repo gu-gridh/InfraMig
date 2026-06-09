@@ -1,5 +1,6 @@
 <template>
   <div class="statistics">
+    <h3>Average stay by country</h3>
     <div ref="chartEl" class="chart"></div>
   </div>
 </template>
@@ -14,13 +15,36 @@ const store = useStore()
 const chartEl = ref(null)
 let chart = null
 
+const filteredGeojson = computed(() => {
+  if (!store.geojson) return null
+
+  return {
+    ...store.geojson,
+    features: store.geojson.features.filter(feature => {
+      const worker = feature.properties
+
+      const matchesBranch =
+        !store.branch || worker.sni_code === store.branch
+
+      const matchesYear =
+        !store.year ||
+        (
+          new Date(worker.startdate).getFullYear() <= store.year &&
+          new Date(worker.enddate).getFullYear() >= store.year
+        )
+
+      return matchesBranch && matchesYear
+    })
+  }
+})
+
 const chartData = computed(() => {
-  if (!store.geojson) return []
-  return getCountryDurationAverages(store.geojson)
+  if (!filteredGeojson.value) return []
+  return getCountryDurationAverages(filteredGeojson.value)
 })
 
 const option = computed(() => ({
-  title: { text: 'Average stay by country' },
+  //title: { text: 'Average stay by country' },
   tooltip: {
     trigger: 'axis',
     axisPointer: { type: 'shadow' },
@@ -46,18 +70,22 @@ const option = computed(() => ({
       type: 'bar',
       data: chartData.value.map(d => d.avgDuration),
       barMaxWidth: 30,
+      itemStyle: {
+      color: '#14B8A6'
+    },
       label: {
         show: true,
         position: 'right',
         formatter: value => Math.round(value.value)
-      }
-    }
+      },
+      
+    },
   ]
 }))
 
 function renderChart() {
   if (!chart) return
-  chart.setOption(option.value)
+  chart.setOption(option.value, true)
 }
 
 onMounted(async () => {
@@ -67,13 +95,21 @@ onMounted(async () => {
   window.addEventListener('resize', chart.resize)
 })
 
-watch(option, renderChart, { deep: true })
+watch(
+  () => [store.geojson, store.year, store.branch],
+  renderChart,
+  { 
+    deep: true 
+  }
+)
 
 onBeforeUnmount(() => {
   window.removeEventListener('resize', chart?.resize)
   chart?.dispose()
   chart = null
 })
+
+
 </script>
 
 <style scoped>

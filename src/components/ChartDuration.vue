@@ -1,14 +1,14 @@
 <template>
   <div class="statistics">
+    <div v-if="!store.year">
     <h3>
-      Duration of stay at
-      <span>{{ store.company.charAt(0).toUpperCase() + store.company.slice(1) }}</span>
-      <br />
+      Duration of stay
+      <br/>
       <span v-if="store.branch" class="brackets"> ({{ store.branchFullName }})</span><span v-else> (all branches)</span>
     </h3>
 
     <div ref="histogramEl" class="chart"></div>
-
+    </div>
     <h3 class="chart-title">Active workers over time</h3>
     <div ref="timelineEl" class="chart"></div>
   </div>
@@ -172,7 +172,7 @@ function buildTimelineOption() {
           color: '#14B8A6'
         },
         areaStyle: {
-          color: 'rgba(20, 184, 166, 0.15)'
+          color: '#14B8A6',
         }
       }
     ]
@@ -180,7 +180,9 @@ function buildTimelineOption() {
 }
 
 function updateCharts() {
-  histogramChart?.setOption(buildHistogramOption(), true)
+   if (!store.year) {
+    histogramChart?.setOption(buildHistogramOption(), true)
+  }
   timelineChart?.setOption(buildTimelineOption(), true)
 }
 
@@ -195,6 +197,23 @@ watch(
     updateCharts()
   },
   { deep: true }
+)
+
+// redraw timeline when store changes
+watch(
+  () => store.year,
+  async (year) => {
+    if (year) {
+      histogramChart?.dispose()
+      histogramChart = null
+      return
+    }
+    await nextTick()
+    if (histogramEl.value && !histogramChart) {
+      histogramChart = echarts.init(histogramEl.value)
+    }
+    updateCharts()
+  }
 )
 
 onMounted(async () => {
@@ -221,6 +240,8 @@ onUnmounted(() => {
   histogramChart = null
   timelineChart = null
 })
+
+
 </script>
 
 <style scoped>
