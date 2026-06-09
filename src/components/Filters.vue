@@ -17,7 +17,7 @@
           color="primary"
         />
       </div>
-
+      <div v-if="!store.country">
       <div class="filter-group">
         <v-select
           v-model="selectedBranch"
@@ -41,6 +41,7 @@
           variant="outlined"
           density="compact"
         />
+      </div>
       </div>
     </v-form>
 
@@ -123,7 +124,7 @@ onMounted(async () => {
           })
         )
     })
-    // fetch branches from public folder
+    // fetch branches from json
     fetch('/json/branches.json')
       .then((res) => res.json())
       .then((data) => {
@@ -137,8 +138,6 @@ onMounted(async () => {
           })
         )
       })
-
-
 })
 
 watch(selectedCountry, (country) => {
@@ -149,7 +148,6 @@ watch(selectedCountry, (country) => {
 watch(selectedYear, (year) => {
   if (year == null) {
     store.resetYear()
-    selectedYear.value = store.year
   } else {
     store.year = year
   }
@@ -158,7 +156,6 @@ watch(selectedYear, (year) => {
 watch(selectedBranch, (branch) => {
   if (branch == null) {
     store.resetBranch()
-    selectedBranch.value = store.branch
   } else {
     store.branch = branch
     store.branchFullName = branchFullNames(branch)

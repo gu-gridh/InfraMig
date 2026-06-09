@@ -54,6 +54,10 @@ export const useStore = defineStore('company', () => {
         branchFullName.value = ''
     }
 
+    const resetYear = () => {
+        year.value = null
+    }
+
     //get country data from geojson based on country code
     watch(country, (newCountry, oldCountry) => {
         if (newCountry && geojson.value) {
@@ -81,6 +85,7 @@ export const useStore = defineStore('company', () => {
         workers,
         setCompany,
         resetBranch,
-        branchFullName
+        branchFullName,
+        resetYear
     }
 })

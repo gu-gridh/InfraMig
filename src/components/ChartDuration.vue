@@ -4,7 +4,7 @@
       Duration of stay at
       <span>{{ store.company.charAt(0).toUpperCase() + store.company.slice(1) }}</span>
       <br />
-      <span v-if="store.branch"> ({{ store.branchFullName }})</span><span v-else> (all branches)</span>
+      <span v-if="store.branch" class="brackets"> ({{ store.branchFullName }})</span><span v-else> (all branches)</span>
     </h3>
 
     <div ref="histogramEl" class="chart"></div>
@@ -41,7 +41,7 @@ const workers = computed(() => {
 
   return features
     .map(feature => feature.properties)
-    .filter(worker => worker?.startdate && worker?.enddate)
+    .filter(worker => worker?.startdate)
     .filter(worker => {
       const matchesCountry =
         !store.country || worker.country_code === store.country
@@ -199,21 +199,16 @@ watch(
 
 onMounted(async () => {
   await nextTick()
-
   if (!store.geojson && !store.loadingGeojson) {
     await store.loadGeojson()
   }
-
   if (histogramEl.value) {
     histogramChart = echarts.init(histogramEl.value)
   }
-
   if (timelineEl.value) {
     timelineChart = echarts.init(timelineEl.value)
   }
-
   updateCharts()
-
   window.addEventListener('resize', resizeCharts)
 })
 
@@ -241,5 +236,10 @@ onUnmounted(() => {
 
 .chart-title {
   margin-top: 12px;
+}
+
+.brackets {
+  font-size: 14px;
+  color: #666;
 }
 </style>
