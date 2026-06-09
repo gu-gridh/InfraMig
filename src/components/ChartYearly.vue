@@ -1,6 +1,6 @@
 <template>
   <div class="statistics">
-    <h3>Total foreign workers at <span>{{ store.company.charAt(0).toUpperCase() + store.company.slice(1)}}</span></h3>
+    <h3>Total workers per year</h3>
     <div ref="chartEl" class="chart"></div>
   </div>
 </template>
@@ -100,7 +100,7 @@ function updateChart(geojson) {
     })
 
     singleAxis.push({
-      left: 10,
+      left: 15,
       right: 20,
       type: 'category',
       boundaryGap: false,

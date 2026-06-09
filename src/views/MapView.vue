@@ -344,13 +344,33 @@ function renderCountries(countryLookup) {
 }
 
   function buildCompanyLayer(pointsData) {
+    function featureMatchesBranch(feature, branch) {
+      if (!branch) return true
+
+      const props = feature.properties || {}
+
+      return String(props.sni_code || '').toUpperCase()
+        === String(branch).toUpperCase()
+    }
+
     let features = pointsData.features ?? []
 
+    //check store and filter out features
     if (store.country) {
       features = features.filter(feature =>
         featureMatchesCountry(feature, store.country)
       )
-  }
+    }
+    if (store.branch) {
+      features = features.filter(feature =>
+        featureMatchesBranch(feature, store.branch)
+      )
+    }
+    if (store.year) {
+      features = features.filter(feature =>
+        featureMatchesYear(feature, store.year)
+      )
+    }
 
   const seenCountries = new Set()
 
@@ -381,9 +401,7 @@ function renderCountries(countryLookup) {
   })
   
   const durations = durationData.map(d => d.avgDuration)
-
   const minDuration = Math.min(...durations)
-
   const maxDuration = Math.max(...durations)
 
   if (!store.country) {
@@ -443,21 +461,14 @@ function renderCountries(countryLookup) {
 
 function refreshCompany(pointsData) {
   if (!map.value || !countriesData.value || !factoryPoint.value || !pointsData) return
+
   updateFactoryPoint(store.company)
-  const countryLookup = buildPresentCountryLookup(pointsData)
+  const filteredData = filterMapFeatures(pointsData)
+  const countryLookup = buildPresentCountryLookup(filteredData)
   renderCountries(countryLookup)
   companyGeoJsonLayer.value?.remove()
-  companyGeoJsonLayer.value = buildCompanyLayer(pointsData).addTo(map.value)
+  companyGeoJsonLayer.value = buildCompanyLayer(filteredData).addTo(map.value)
 }
-
-watch(
-  [() => store.geojson, mapReady,],
-  ([geojson, ready]) => {
-    if (!ready || !geojson) return
-    refreshCompany(geojson)
-  },
-  { immediate: true }
-)
 
 //update store.coordinates when country changes
 const DEFAULT_CENTER = [30, 3]
@@ -467,7 +478,6 @@ watch(
   () => store.country,
   (country) => {
     if (!map.value) return
-
     if (store.geojson) {
       refreshCompany(store.geojson)
     }
@@ -509,17 +519,41 @@ watch(
   }
 )
 
-watch(
-  () => store.company,
-  async () => {
-    if (!mapReady.value) return
+function featureMatchesYear(feature, year) {
+  if (!year) return true
 
-    await store.loadGeojson()
+  const props = feature.properties || {}
+  if (!props.startdate) return false
 
-    if (store.geojson) {
-      refreshCompany(store.geojson)
-    }
+  const start = new Date(props.startdate)
+  const end = props.enddate ? new Date(props.enddate) : new Date()
+
+  const yearStart = new Date(year, 0, 1)
+  const yearEnd = new Date(year, 11, 31, 23, 59, 59)
+
+  return start <= yearEnd && end >= yearStart
+}
+
+function filterMapFeatures(pointsData) {
+  return {
+    ...pointsData,
+    features: (pointsData.features ?? []).filter(feature => {
+      return (
+        (!store.country || featureMatchesCountry(feature, store.country)) &&
+        (!store.branch || String(feature.properties?.sni_code || '').toUpperCase() === String(store.branch).toUpperCase()) &&
+        featureMatchesYear(feature, store.year)
+      )
+    })
   }
+}
+
+watch(
+  [() => store.geojson, mapReady, () => store.branch, () => store.year],
+  ([geojson, ready]) => {
+    if (!ready || !geojson) return
+    refreshCompany(geojson)
+  },
+  { immediate: true }
 )
 
 onMounted(async () => {
