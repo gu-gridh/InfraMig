@@ -1,6 +1,6 @@
 <template>
   <div class="filters">
-    <h3>Filters</h3>
+    <!-- <h3>Filters</h3> -->
 
     <v-form>
       <div class="filter-group">
@@ -80,6 +80,7 @@
 import { onMounted, ref, watch, nextTick } from 'vue'
 import StatisticsTabs from '@/views/StatisticsTabs.vue'
 import { useStore } from '@/stores/company'
+import { branchFullNames } from '@/assets/statsFunctions.js'
 
 const countries = ref([''])
 const branches = ref([''])
@@ -160,6 +161,7 @@ watch(selectedBranch, (branch) => {
     selectedBranch.value = store.branch
   } else {
     store.branch = branch
+    store.branchFullName = branchFullNames(branch)
   }
 })
 

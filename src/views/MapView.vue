@@ -344,12 +344,25 @@ function renderCountries(countryLookup) {
 }
 
   function buildCompanyLayer(pointsData) {
+    function featureMatchesBranch(feature, branch) {
+      if (!branch) return true
+
+      const props = feature.properties || {}
+
+      return String(props.sni_code || '').toUpperCase()
+        === String(branch).toUpperCase()
+    }
     let features = pointsData.features ?? []
 
     if (store.country) {
       features = features.filter(feature =>
         featureMatchesCountry(feature, store.country)
       )
+    }
+    if (store.branch) {
+    features = features.filter(feature =>
+      featureMatchesBranch(feature, store.branch)
+    )
   }
 
   const seenCountries = new Set()
@@ -381,9 +394,7 @@ function renderCountries(countryLookup) {
   })
   
   const durations = durationData.map(d => d.avgDuration)
-
   const minDuration = Math.min(...durations)
-
   const maxDuration = Math.max(...durations)
 
   if (!store.country) {
@@ -467,7 +478,6 @@ watch(
   () => store.country,
   (country) => {
     if (!map.value) return
-
     if (store.geojson) {
       refreshCompany(store.geojson)
     }
@@ -510,16 +520,12 @@ watch(
 )
 
 watch(
-  () => store.company,
-  async () => {
-    if (!mapReady.value) return
-
-    await store.loadGeojson()
-
-    if (store.geojson) {
-      refreshCompany(store.geojson)
-    }
-  }
+  [() => store.geojson, mapReady, () => store.branch],
+  ([geojson, ready]) => {
+    if (!ready || !geojson) return
+    refreshCompany(geojson)
+  },
+  { immediate: true }
 )
 
 onMounted(async () => {

@@ -3,6 +3,8 @@
     <h3>
       Duration of stay at
       <span>{{ store.company.charAt(0).toUpperCase() + store.company.slice(1) }}</span>
+      <br />
+      <span v-if="store.branch"> ({{ store.branchFullName }})</span><span v-else> (all branches)</span>
     </h3>
 
     <div ref="histogramEl" class="chart"></div>

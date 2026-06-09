@@ -6,6 +6,7 @@ export const useStore = defineStore('company', () => {
     const company = ref('stegra')
     const country = ref()
     const fullName = ref('')
+    const branchFullName = ref('')
     const branch = ref()
     const year = ref(null)
     const coordinates = ref([30, 3])
@@ -13,6 +14,7 @@ export const useStore = defineStore('company', () => {
     const geojson = ref(null)
     const workers = ref(null)
     const loadingGeojson = ref(false)
+
 
     const setCompany = (newCompany) => {
         company.value = newCompany
@@ -47,6 +49,11 @@ export const useStore = defineStore('company', () => {
         }
     }
 
+    const resetBranch = () => {
+        branch.value = null
+        branchFullName.value = ''
+    }
+
     //get country data from geojson based on country code
     watch(country, (newCountry, oldCountry) => {
         if (newCountry && geojson.value) {
@@ -72,6 +79,8 @@ export const useStore = defineStore('company', () => {
         zoom,
         fullName,
         workers,
-        setCompany
+        setCompany,
+        resetBranch,
+        branchFullName
     }
 })

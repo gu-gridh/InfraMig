@@ -55,3 +55,15 @@ export function getCountryDurationAverages(geojson) {
     })
     .sort((a, b) => b.avgDuration - a.avgDuration)
 }
+
+export const branchFullNames = (letter) => {
+    const mapping = {
+        C: 'Manufacturing',
+        F: 'Construction',
+        H: 'Transportation and Storage',
+        N: 'Professional, Scientific And Technical Activities',
+        O: 'Administrative and Support Service Activities'
+    }
+    return mapping[letter]
+} 
+
