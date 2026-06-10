@@ -28,7 +28,7 @@ import 'leaflet/dist/leaflet.css'
 import Filters from '@/components/Filters.vue'
 import { useStore } from '@/stores/company'
 import * as statsFunctions from '@/assets/statsFunctions.js'
-import { getCountryDurationAverages } from '@/assets/statsFunctions.js'
+import { getCountryDurationAverages, branchFullNames } from '@/assets/statsFunctions.js'
 import { useRouter } from 'vue-router'
 
 const router = useRouter()
@@ -227,27 +227,36 @@ const BRANCH_COLORS = {
 
 function renderCountryLegend() {
   countryLegend.value?.remove()
+
+  const sniStats = statsFunctions.calcSNI(store.workers)
+
   countryLegend.value = L.control({ position: 'bottomleft' })
+
   countryLegend.value.onAdd = () => {
     const div = L.DomUtil.create('div', 'duration-legend')
 
+    const sortedBranches = Object.entries(sniStats ?? {})
+      .sort(([, a], [, b]) => Number(b.percentage) - Number(a.percentage))
+
     div.innerHTML = `
       <div class="legend-title">${store.fullName}</div>
-      <div class="legend-row">
-        <!-- All branch colors -->
-        ${Object.entries(BRANCH_COLORS).map(([code, color]) => `
-          <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 4px;">
-            <span
-              class="legend-point"
-              style="background:${color}; width: 16px; height: 16px;"
-            ></span>
-            <span>${code}</span>
-          </div>
-        `).join('')}
-      </div>
+
+      ${sortedBranches.map(([code, data]) => `
+        <div class="legend-row">
+          <span
+            class="legend-point"
+            style="background:${BRANCH_COLORS[code]};"
+          ></span>
+          <span>
+            <strong>${branchFullNames(code)}</strong> (${data.percentage}%)
+          </span>
+        </div>
+      `).join('')}
     `
+
     return div
   }
+
   countryLegend.value.addTo(map.value)
 }
 
@@ -622,7 +631,6 @@ onMounted(async () => {
       return container
     }
   })
-
   new BackControl().addTo(map.value)
 
   mapReady.value = true
