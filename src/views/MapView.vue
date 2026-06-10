@@ -66,11 +66,15 @@ function normalizeName(value) {
   return String(value ?? '').trim().toLowerCase()
 }
 
+//since there can be a space before country code in the data...
+function cleanCode(value) {
+  return String(value ?? '').trim().toUpperCase()
+}
+
 function featureMatchesCountry(feature, country) {
   const props = feature.properties || {}
-
   return (
-    String(extractCountryCode(props)).toUpperCase() === String(country).toUpperCase() ||
+    cleanCode(extractCountryCode(props)) === cleanCode(country) ||
     normalizeName(extractCountryName(props)) === normalizeName(country)
   )
 }
@@ -225,10 +229,10 @@ const BRANCH_COLORS = {
   'O': '#fbbf24',
 }
 
-function renderCountryLegend() {
+function renderCountryLegend(workers) {
   countryLegend.value?.remove()
 
-  const sniStats = statsFunctions.calcSNI(store.workers)
+  const sniStats = statsFunctions.calcSNI(workers)
 
   countryLegend.value = L.control({ position: 'bottomleft' })
 
@@ -243,13 +247,8 @@ function renderCountryLegend() {
 
       ${sortedBranches.map(([code, data]) => `
         <div class="legend-row">
-          <span
-            class="legend-point"
-            style="background:${BRANCH_COLORS[code]};"
-          ></span>
-          <span>
-            <strong>${branchFullNames(code)}</strong> (${data.percentage}%)
-          </span>
+          <span class="legend-point" style="background:${BRANCH_COLORS[code]};"></span>
+          <span><strong>${branchFullNames(code)}</strong> (${data.percentage}%)</span>
         </div>
       `).join('')}
     `
@@ -269,7 +268,9 @@ function buildPresentCountryLookup(pointsData) {
     const code = extractCountryCode(props)
     const name = extractCountryName(props)
 
-    if (code) codes.add(String(code).toUpperCase())
+    if (code){
+      codes.add(cleanCode(code))
+    } 
     if (name) names.add(normalizeName(name))
   }
 
@@ -281,7 +282,7 @@ function isCountryPresent(countryLookup, countryProps = {}) {
   const name = extractCountryName(countryProps)
 
   return (
-    (code && countryLookup.codes.has(String(code).toUpperCase())) ||
+    (code && countryLookup.codes.has(cleanCode(code))) ||
     (name && countryLookup.names.has(normalizeName(name)))
   )
 }
@@ -327,7 +328,7 @@ function renderCountries(countryLookup) {
       const code = extractCountryCode(props)
       const name = extractCountryName(props) || 'Unknown'
 
-      const override = code ? COUNTRY_LABEL_OVERRIDES[code] : null
+      const override = code ? COUNTRY_LABEL_OVERRIDES[cleanCode(code)] : null
 
       if (override) {
         if (!addedOverrideLabels.has(code)) {
@@ -388,8 +389,10 @@ function renderCountries(countryLookup) {
 
   const uniqueCountryFeatures = features.filter((feature) => {
     const props = feature.properties || {}
-    const key = extractCountryCode(props) || normalizeName(extractCountryName(props))
+    const key = cleanCode(extractCountryCode(props)) || normalizeName(extractCountryName(props))
+
     if (!key || seenCountries.has(key)) return false
+
     seenCountries.add(key)
     return true
   })
@@ -433,7 +436,9 @@ function renderCountries(countryLookup) {
       pointToLayer: (feature, latlng) => {
 
   if (store.country) {
-    const sniStats = statsFunctions.calcSNI(store.workers)
+    const sniStats = statsFunctions.calcSNI(
+    features.map(f => f.properties)
+    )
     return L.marker(latlng, {
       pane: 'pointsPane',
       icon: buildPieIcon(sniStats)
@@ -497,8 +502,10 @@ watch(
     if (country) {
       durationLegend.value?.remove()
       durationLegend.value = null
-      renderCountryLegend()
-      SNI_stats.value = statsFunctions.calcSNI(store.workers)
+      const filteredData = filterMapFeatures(store.geojson)
+      const workers = filteredData.features.map(f => f.properties)
+      SNI_stats.value = statsFunctions.calcSNI(workers)
+      renderCountryLegend(workers)
     } else {
       countryLegend.value?.remove()
       countryLegend.value = null

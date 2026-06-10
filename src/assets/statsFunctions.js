@@ -24,6 +24,7 @@ export const calcSNI = (workers) => {
         const percentage = ((count / totalWorkers) * 100).toFixed(0)
         branchCounts[branch] = { count, percentage }
     }
+    console.log('Branch counts:', branchCounts)
     //sort branches by percentage descending
     const sortedBranchCounts = Object.entries(branchCounts)
         .sort((a, b) => b[1].percentage - a[1].percentage)
