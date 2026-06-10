@@ -29,6 +29,9 @@ import Filters from '@/components/Filters.vue'
 import { useStore } from '@/stores/company'
 import * as statsFunctions from '@/assets/statsFunctions.js'
 import { getCountryDurationAverages } from '@/assets/statsFunctions.js'
+import { useRouter } from 'vue-router'
+
+const router = useRouter()
 
 const store = useStore()
 
@@ -597,6 +600,30 @@ onMounted(async () => {
     opacity: 1,
     fillOpacity: 0.9
   }).addTo(map.value)
+  
+  map.value.zoomControl.setPosition('bottomright')
+
+  const BackControl = L.Control.extend({
+    options: {
+      position: 'topleft'
+    },
+    onAdd() {
+      const container = L.DomUtil.create('div', 'leaflet-bar')
+      const button = L.DomUtil.create('a', 'back-button', container)
+      button.href = '#'
+      //button.title = 'Back'
+      button.innerHTML = '<i class="mdi mdi-home"></i>'
+      //button.classList.add('material-icons')
+      L.DomEvent.disableClickPropagation(container)
+      L.DomEvent.on(button, 'click', (e) => {
+        L.DomEvent.preventDefault(e)
+        router.push('/')
+      })
+      return container
+    }
+  })
+
+  new BackControl().addTo(map.value)
 
   mapReady.value = true
 
@@ -732,5 +759,11 @@ html, body, #app {
 
 .sni-pie.empty {
   background: #d4d4d8;
+}
+
+.leaflet-bar .mdi {
+  font-size: 18px;
+  line-height: 26px;
+  color: #14B8A6;
 }
 </style>
