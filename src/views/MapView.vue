@@ -477,9 +477,9 @@ function renderCountries(countryLookup) {
 }
 
 function refreshCompany(pointsData) {
-  if (!map.value || !countriesData.value || !factoryPoint.value || !pointsData) return
+  if (!map.value || !countriesData.value || !pointsData) return
 
-  updateFactoryPoint(store.company)
+  //updateFactoryPoint(store.company)
   const filteredData = filterMapFeatures(pointsData)
   const countryLookup = buildPresentCountryLookup(filteredData)
   renderCountries(countryLookup)
@@ -607,15 +607,15 @@ onMounted(async () => {
 
   countriesData.value = await fetchJson('/geojson/countries.geojson')
 
-  factoryPoint.value = L.circleMarker(getCompanyConfig(store.company).factoryLatLng, {
-    pane: 'pointsPane',
-    radius: 6,
-    fillColor: '#14B8A6',
-    color: '#14B8A6',
-    weight: 2,
-    opacity: 1,
-    fillOpacity: 0.9
-  }).addTo(map.value)
+  // factoryPoint.value = L.circleMarker(getCompanyConfig(store.company).factoryLatLng, {
+  //   pane: 'pointsPane',
+  //   radius: 6,
+  //   fillColor: '#14B8A6',
+  //   color: '#14B8A6',
+  //   weight: 2,
+  //   opacity: 1,
+  //   fillOpacity: 0.9
+  // }).addTo(map.value)
   
   map.value.zoomControl.setPosition('bottomright')
 
