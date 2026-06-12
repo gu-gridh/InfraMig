@@ -25,7 +25,14 @@ export const calcSNI = (workers) => {
         branchCounts[branch] = { count, percentage }
     }
     console.log('Branch counts:', branchCounts)
-    return branchCounts
+    //sort branches by percentage descending
+    const sortedBranchCounts = Object.entries(branchCounts)
+        .sort((a, b) => b[1].percentage - a[1].percentage)
+        .reduce((acc, [branch, data]) => {
+            acc[branch] = data
+            return acc
+        }, {})
+    return sortedBranchCounts
 }
 
 // calc average duration of migration for each country in the geojson, return sorted by duration descending
@@ -60,9 +67,9 @@ export const branchFullNames = (letter) => {
     const mapping = {
         C: 'Manufacturing',
         F: 'Construction',
-        H: 'Transportation and Storage',
-        N: 'Professional, Scientific And Technical Activities',
-        O: 'Administrative and Support Service Activities'
+        H: 'Transportation/Storage',
+        N: 'Professional, Scientific & Technical',
+        O: 'Administrative & Support Service '
     }
     return mapping[letter]
 } 

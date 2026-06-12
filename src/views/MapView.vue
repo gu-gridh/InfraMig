@@ -28,7 +28,10 @@ import 'leaflet/dist/leaflet.css'
 import Filters from '@/components/Filters.vue'
 import { useStore } from '@/stores/company'
 import * as statsFunctions from '@/assets/statsFunctions.js'
-import { getCountryDurationAverages } from '@/assets/statsFunctions.js'
+import { getCountryDurationAverages, branchFullNames } from '@/assets/statsFunctions.js'
+import { useRouter } from 'vue-router'
+
+const router = useRouter()
 
 const store = useStore()
 
@@ -63,11 +66,15 @@ function normalizeName(value) {
   return String(value ?? '').trim().toLowerCase()
 }
 
+//since there can be a space before country code in the data...
+function cleanCode(value) {
+  return String(value ?? '').trim().toUpperCase()
+}
+
 function featureMatchesCountry(feature, country) {
   const props = feature.properties || {}
-
   return (
-    String(extractCountryCode(props)).toUpperCase() === String(country).toUpperCase() ||
+    cleanCode(extractCountryCode(props)) === cleanCode(country) ||
     normalizeName(extractCountryName(props)) === normalizeName(country)
   )
 }
@@ -222,29 +229,33 @@ const BRANCH_COLORS = {
   'O': '#fbbf24',
 }
 
-function renderCountryLegend() {
+function renderCountryLegend(workers) {
   countryLegend.value?.remove()
+
+  const sniStats = statsFunctions.calcSNI(workers)
+
   countryLegend.value = L.control({ position: 'bottomleft' })
+
   countryLegend.value.onAdd = () => {
     const div = L.DomUtil.create('div', 'duration-legend')
 
+    const sortedBranches = Object.entries(sniStats ?? {})
+      .sort(([, a], [, b]) => Number(b.percentage) - Number(a.percentage))
+
     div.innerHTML = `
       <div class="legend-title">${store.fullName}</div>
-      <div class="legend-row">
-        <!-- All branch colors -->
-        ${Object.entries(BRANCH_COLORS).map(([code, color]) => `
-          <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 4px;">
-            <span
-              class="legend-point"
-              style="background:${color}; width: 16px; height: 16px;"
-            ></span>
-            <span>${code}</span>
-          </div>
-        `).join('')}
-      </div>
+
+      ${sortedBranches.map(([code, data]) => `
+        <div class="legend-row">
+          <span class="legend-point" style="background:${BRANCH_COLORS[code]};"></span>
+          <span><strong>${branchFullNames(code)}</strong> (${data.percentage}%)</span>
+        </div>
+      `).join('')}
     `
+
     return div
   }
+
   countryLegend.value.addTo(map.value)
 }
 
@@ -257,7 +268,9 @@ function buildPresentCountryLookup(pointsData) {
     const code = extractCountryCode(props)
     const name = extractCountryName(props)
 
-    if (code) codes.add(String(code).toUpperCase())
+    if (code){
+      codes.add(cleanCode(code))
+    } 
     if (name) names.add(normalizeName(name))
   }
 
@@ -269,7 +282,7 @@ function isCountryPresent(countryLookup, countryProps = {}) {
   const name = extractCountryName(countryProps)
 
   return (
-    (code && countryLookup.codes.has(String(code).toUpperCase())) ||
+    (code && countryLookup.codes.has(cleanCode(code))) ||
     (name && countryLookup.names.has(normalizeName(name)))
   )
 }
@@ -315,7 +328,7 @@ function renderCountries(countryLookup) {
       const code = extractCountryCode(props)
       const name = extractCountryName(props) || 'Unknown'
 
-      const override = code ? COUNTRY_LABEL_OVERRIDES[code] : null
+      const override = code ? COUNTRY_LABEL_OVERRIDES[cleanCode(code)] : null
 
       if (override) {
         if (!addedOverrideLabels.has(code)) {
@@ -376,8 +389,10 @@ function renderCountries(countryLookup) {
 
   const uniqueCountryFeatures = features.filter((feature) => {
     const props = feature.properties || {}
-    const key = extractCountryCode(props) || normalizeName(extractCountryName(props))
+    const key = cleanCode(extractCountryCode(props)) || normalizeName(extractCountryName(props))
+
     if (!key || seenCountries.has(key)) return false
+
     seenCountries.add(key)
     return true
   })
@@ -421,7 +436,9 @@ function renderCountries(countryLookup) {
       pointToLayer: (feature, latlng) => {
 
   if (store.country) {
-    const sniStats = statsFunctions.calcSNI(store.workers)
+    const sniStats = statsFunctions.calcSNI(
+    features.map(f => f.properties)
+    )
     return L.marker(latlng, {
       pane: 'pointsPane',
       icon: buildPieIcon(sniStats)
@@ -460,9 +477,9 @@ function renderCountries(countryLookup) {
 }
 
 function refreshCompany(pointsData) {
-  if (!map.value || !countriesData.value || !factoryPoint.value || !pointsData) return
+  if (!map.value || !countriesData.value || !pointsData) return
 
-  updateFactoryPoint(store.company)
+  //updateFactoryPoint(store.company)
   const filteredData = filterMapFeatures(pointsData)
   const countryLookup = buildPresentCountryLookup(filteredData)
   renderCountries(countryLookup)
@@ -485,8 +502,10 @@ watch(
     if (country) {
       durationLegend.value?.remove()
       durationLegend.value = null
-      renderCountryLegend()
-      SNI_stats.value = statsFunctions.calcSNI(store.workers)
+      const filteredData = filterMapFeatures(store.geojson)
+      const workers = filteredData.features.map(f => f.properties)
+      SNI_stats.value = statsFunctions.calcSNI(workers)
+      renderCountryLegend(workers)
     } else {
       countryLegend.value?.remove()
       countryLegend.value = null
@@ -588,15 +607,38 @@ onMounted(async () => {
 
   countriesData.value = await fetchJson('/geojson/countries.geojson')
 
-  factoryPoint.value = L.circleMarker(getCompanyConfig(store.company).factoryLatLng, {
-    pane: 'pointsPane',
-    radius: 6,
-    fillColor: '#14B8A6',
-    color: '#14B8A6',
-    weight: 2,
-    opacity: 1,
-    fillOpacity: 0.9
-  }).addTo(map.value)
+  // factoryPoint.value = L.circleMarker(getCompanyConfig(store.company).factoryLatLng, {
+  //   pane: 'pointsPane',
+  //   radius: 6,
+  //   fillColor: '#14B8A6',
+  //   color: '#14B8A6',
+  //   weight: 2,
+  //   opacity: 1,
+  //   fillOpacity: 0.9
+  // }).addTo(map.value)
+  
+  map.value.zoomControl.setPosition('bottomright')
+
+  const BackControl = L.Control.extend({
+    options: {
+      position: 'topleft'
+    },
+    onAdd() {
+      const container = L.DomUtil.create('div', 'leaflet-bar')
+      const button = L.DomUtil.create('a', 'back-button', container)
+      button.href = '#'
+      //button.title = 'Back'
+      button.innerHTML = '<i class="mdi mdi-home"></i>'
+      //button.classList.add('material-icons')
+      L.DomEvent.disableClickPropagation(container)
+      L.DomEvent.on(button, 'click', (e) => {
+        L.DomEvent.preventDefault(e)
+        router.push('/')
+      })
+      return container
+    }
+  })
+  new BackControl().addTo(map.value)
 
   mapReady.value = true
 
@@ -732,5 +774,11 @@ html, body, #app {
 
 .sni-pie.empty {
   background: #d4d4d8;
+}
+
+.leaflet-bar .mdi {
+  font-size: 18px;
+  line-height: 26px;
+  color: #14B8A6;
 }
 </style>

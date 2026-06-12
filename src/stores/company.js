@@ -70,6 +70,17 @@ export const useStore = defineStore('company', () => {
         }
     })
 
+        watch(company, async (newCompany) => {
+        resetBranch()
+        resetYear()
+        country.value = null
+        workers.value = null
+        await loadGeojson(newCompany)
+        }, 
+        { 
+            immediate: true 
+    })
+
 
     return { 
         company,
