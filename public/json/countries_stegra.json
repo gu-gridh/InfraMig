@@ -96,10 +96,6 @@
     "country_code":"BEL"
   },
   {
-    "countries_eng":"Canada",
-    "country_code":"CAN"
-  },
-  {
     "countries_eng":"Hungary",
     "country_code":"HUN"
   },
@@ -118,13 +114,5 @@
   {
     "countries_eng":"Slovenia",
     "country_code":"SVN"
-  },
-  {
-    "countries_eng":"Austria",
-    "country_code":"AUT"
-  },
-  {
-    "countries_eng":"Luxembourg",
-    "country_code":"LUX"
   }
 ]

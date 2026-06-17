@@ -24,7 +24,7 @@
           :items="branches"
           item-title="name"
           item-value="code"
-          label="Select branch"
+          label="Select industry"
           clearable
           variant="outlined"
           density="compact"
@@ -78,7 +78,7 @@
 </template>
 
 <script setup>
-import { onMounted, ref, watch, nextTick } from 'vue'
+import { onMounted, ref, watch, nextTick, computed } from 'vue'
 import StatisticsTabs from '@/views/StatisticsTabs.vue'
 import { useStore } from '@/stores/company'
 import { branchFullNames } from '@/assets/statsFunctions.js'
@@ -96,9 +96,31 @@ const countrySearch = ref('')
 const filtersEl = ref(null)
 
 const store = useStore()
+const companyState = computed(() => store.company)
 
 const toggleExpand = () => {
   expanded.value = !expanded.value
+}
+
+const fetchCountries = async () => {
+  const countriesJson =
+    companyState.value === 'ssab'
+      ? '/json/countries_ssab.json'
+      : '/json/countries_stegra.json'
+
+  const res = await fetch(countriesJson)
+  const data = await res.json()
+
+  countries.value = data
+    .map((d) => ({
+      country_code: d.country_code,
+      countries_eng: d.countries_eng
+    }))
+    .sort((a, b) =>
+      a.countries_eng.localeCompare(b.countries_eng, undefined, {
+        sensitivity: 'base'
+      })
+    )
 }
 
 onMounted(async () => {
@@ -108,22 +130,8 @@ onMounted(async () => {
     L.DomEvent.disableScrollPropagation(filtersEl.value)
     L.DomEvent.disableClickPropagation(filtersEl.value)
   }
-  //fetch json from public folder
-  fetch('/json/countries.json')
-    .then((res) => res.json())
-    .then((data) => {
-      // extract country names from json and sort alphabetically
-      countries.value = data
-        .map((d) => ({
-          country_code: d.country_code,
-          countries_eng: d.countries_eng
-        }))
-        .sort((a, b) =>
-          a.countries_eng.localeCompare(b.countries_eng, undefined, {
-            sensitivity: 'base'
-          })
-        )
-    })
+  //fetch json from public folder depending on company state
+  fetchCountries()
     // fetch branches from json
     fetch('/json/branches.json')
       .then((res) => res.json())
@@ -160,6 +168,13 @@ watch(selectedBranch, (branch) => {
     store.branch = branch
     store.branchFullName = branchFullNames(branch)
   }
+})
+
+watch(companyState, async () => {
+  selectedCountry.value = null
+  store.country = null
+  store.fullName = ''
+  await fetchCountries()
 })
 
 </script>

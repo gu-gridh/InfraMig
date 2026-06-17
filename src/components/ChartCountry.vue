@@ -1,6 +1,6 @@
 <template>
   <div class="statistics">
-    <h3>Average stay by country</h3>
+    <h3>Average stay by country <span v-if="store.year">({{ store.year }})</span><span v-else>2023-2026</span><span v-if="store.branch" class="brackets"> ({{ store.branchFullName }})</span><span v-else class="brackets"> (all industries)</span></h3>
     <div ref="chartEl" class="chart"></div>
   </div>
 </template>
@@ -21,7 +21,7 @@ const filteredGeojson = computed(() => {
   return {
     ...store.geojson,
     features: store.geojson.features.filter(feature => {
-      const worker = feature.properties
+      const worker = feature.propertiesß
 
       const matchesBranch =
         !store.branch || worker.sni_code === store.branch
@@ -116,5 +116,10 @@ onBeforeUnmount(() => {
 .chart {
   width: 100%;
   height: 600px;
+}
+
+.brackets {
+  font-size: 14px;
+  color: #666;
 }
 </style>
