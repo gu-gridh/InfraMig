@@ -42,6 +42,7 @@ const countriesLayer = shallowRef(null)
 const countryLabelsLayer = shallowRef(null)
 const durationLegend = shallowRef(null)
 const countryLegend = shallowRef(null)
+const sizeLegend = shallowRef(null)
 const SNI_stats = ref(null)
 
 const countriesData = ref(null)
@@ -77,6 +78,52 @@ function featureMatchesCountry(feature, country) {
     cleanCode(extractCountryCode(props)) === cleanCode(country) ||
     normalizeName(extractCountryName(props)) === normalizeName(country)
   )
+}
+
+function getCircleRadius(count, maxCount) {
+  const n = Number(count) || 1
+  const minRadius = 6
+  const maxRadius = 20
+
+  return minRadius + (Math.sqrt(n) / Math.sqrt(maxCount)) * (maxRadius - minRadius)
+}
+
+function renderSizeLegend(maxCount) {
+  sizeLegend.value?.remove()
+
+  const values = [
+    50,
+    Math.round(2000/ 4),
+    Math.round(2000 / 2),
+    2000
+  ].filter((v, i, arr) => v > 0 && arr.indexOf(v) === i)
+
+  sizeLegend.value = L.control({ position: 'bottomleft' })
+
+  sizeLegend.value.onAdd = () => {
+    const div = L.DomUtil.create('div', 'size-legend')
+
+    div.innerHTML = `
+      <div class="legend-title">Workers</div>
+
+      ${values.map(value => `
+        <div class="size-legend-row">
+          <span
+            class="size-legend-circle"
+            style="
+              width:${getCircleRadius(value, 2000) * 2}px;
+              height:${getCircleRadius(value, 2000) * 2}px;
+            "
+          ></span>
+          <span>${value}</span>
+        </div>
+      `).join('')}
+    `
+
+    return div
+  }
+
+  sizeLegend.value.addTo(map.value)
 }
 
 function buildPieIcon(stats) {
@@ -169,14 +216,14 @@ const DURATION_COLORS = [
 ]
 
 function getDurationColor(days) {
-  if (days < 50) return '#d73027'
-  if (days < 100) return '#fc8d59'
-  if (days < 150) return '#fee08b'
-  if (days < 200) return '#d9ef8b'
-  if (days < 300) return '#91cf60'
-  if (days < 500) return '#66c2a5'
-  if (days < 1000) return '#3288bd'
-  return '#5e4fa2'
+  if (days < 50) return '#5e4fa2'
+  if (days < 100) return '#3288bd'
+  if (days < 150) return '#66c2a5'
+  if (days < 200) return '#91cf60'
+  if (days < 300) return '#d9ef8b'
+  if (days < 500) return '#fee08b'
+  if (days < 1000) return '#fc8d59'
+  return '#d73027'
 }
 
 function renderDurationLegend(min, max) {
@@ -199,7 +246,9 @@ function renderDurationLegend(min, max) {
     const div = L.DomUtil.create('div', 'duration-legend')
 
     div.innerHTML = `
-      <div class="legend-title">Average stay (days)</div>
+      <div class="legend-title">
+        Average stay (days) ${store.year ?? '2023–2026'}
+      </div>
 
       ${ranges.map(([from, to]) => {
         const mid = (from + to) / 2
@@ -399,16 +448,22 @@ function renderCountries(countryLookup) {
 
   const counts = uniqueCountryFeatures.map(
     (feature) => Number(feature.properties?.country_count) || 1
-  )
-  const maxCount = Math.max(...counts, 1)
+    )
+    const maxCount = Math.max(...counts, 1)
 
-  function getRadius(count) {
-    const n = Number(count) || 1
-    const minRadius = 6
-    const maxRadius = 20
+      if (!store.country) {
+        renderSizeLegend(maxCount)
+      } else {
+        sizeLegend.value?.remove()
+        sizeLegend.value = null
+      }
 
-    return minRadius + (Math.sqrt(n) / Math.sqrt(maxCount)) * (maxRadius - minRadius)
-  }
+    // function getRadius(count) {
+    //   const n = Number(count) || 1
+    //   const minRadius = 6
+    //   const maxRadius = 20
+    //   return minRadius + (Math.sqrt(n) / Math.sqrt(maxCount)) * (maxRadius - minRadius)
+    // }
 
   const durationData = getCountryDurationAverages({
     ...pointsData,
@@ -449,7 +504,7 @@ function renderCountries(countryLookup) {
 
   const durationAvg = feature.properties?.duration_avg
     return L.circleMarker(latlng, {
-      radius: getRadius(count),
+      radius: getCircleRadius(count, maxCount),
       fillColor: getDurationColor(
         durationAvg,
         minDuration,
@@ -671,6 +726,8 @@ onBeforeUnmount(() => {
   mapReady.value = false
   durationLegend.value?.remove()
   durationLegend.value = null
+  sizeLegend.value?.remove()
+  sizeLegend.value = null
 })
 </script>
 
@@ -731,7 +788,8 @@ html, body, #app {
   padding: 10px 12px;
   border-radius: 10px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-  min-width: 140px;
+  min-width: 170px;
+  max-width: 170px;
 }
 
 .legend-title {
@@ -780,5 +838,32 @@ html, body, #app {
   font-size: 18px;
   line-height: 26px;
   color: #14B8A6;
+}
+
+.size-legend {
+  background: rgba(255,255,255,0.92);
+  padding: 10px 12px;
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  min-width: 170px;
+  max-width: 170px;
+}
+
+.size-legend-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+  font-size: 11px;
+  color: #444;
+}
+
+.size-legend-circle {
+  display: inline-block;
+  border-radius: 50%;
+  background: #bebcbc;
+  border: 1px solid white;
+  opacity: 0.75;
+  flex-shrink: 0;
 }
 </style>

@@ -1,6 +1,6 @@
 <template>
   <div class="statistics">
-    <h3>Total workers per year</h3>
+    <h3>Total workers per year <span v-if="store.branch" class="brackets">({{ store.branchFullName }})</span><span v-else class="brackets">(All industries)</span></h3>
     <div ref="chartEl" class="chart"></div>
   </div>
 </template>
@@ -194,5 +194,10 @@ onUnmounted(() => {
 .chart {
   width: 100%;
   height: 400px;
+}
+
+.brackets {
+  font-size: 14px;
+  color: #666;
 }
 </style>

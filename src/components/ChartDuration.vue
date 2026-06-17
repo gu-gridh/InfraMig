@@ -3,13 +3,13 @@
     <div v-if="!store.year">
     <h3>
       Duration of stay
-      <br/>
-      <span v-if="store.branch" class="brackets"> ({{ store.branchFullName }})</span><span v-else> (all branches)</span>
+      <span v-if="store.year">({{ store.year }})</span><span v-else>2023-2026</span>
+      <span v-if="store.branch" class="brackets"> ({{ store.branchFullName }})</span><span v-else class="brackets"> (all industries)</span>
     </h3>
 
     <div ref="histogramEl" class="chart"></div>
     </div>
-    <h3 class="chart-title">Active workers over time</h3>
+    <h3 class="chart-title">Activity of work <span v-if="store.year">({{ store.year }})</span><span v-else>2023-2026</span></h3>
     <div ref="timelineEl" class="chart"></div>
   </div>
 </template>
@@ -155,7 +155,7 @@ function buildTimelineOption() {
     },
     yAxis: {
       type: 'value',
-      name: 'Active workers'
+      name: 'Workers'
     },
     series: [
       {

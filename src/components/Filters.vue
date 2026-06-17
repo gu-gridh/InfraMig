@@ -24,7 +24,7 @@
           :items="branches"
           item-title="name"
           item-value="code"
-          label="Select branch"
+          label="Select industry"
           clearable
           variant="outlined"
           density="compact"
