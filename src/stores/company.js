@@ -15,6 +15,10 @@ export const useStore = defineStore('company', () => {
     const workers = ref(null)
     const loadingGeojson = ref(false)
 
+    const cleanCode = (code) => {
+        return String(code || '').trim().toUpperCase()
+    }
+
 
     const setCompany = (newCompany) => {
         company.value = newCompany
@@ -59,18 +63,22 @@ export const useStore = defineStore('company', () => {
     }
 
     //get country data from geojson based on country code
-    watch(country, (newCountry, oldCountry) => {
-        if (newCountry && geojson.value) {
-            //find ALL features in geojson with matching country code
-            const features = geojson.value.features.filter(f => f.properties.country_code === newCountry)
-            if (features.length > 0) {
-                //add each feature.properties to workers ref
-                workers.value = features.map(f => f.properties)
-            }
+    watch([country, geojson], ([newCountry, newGeojson]) => {
+        if (!newCountry || !newGeojson) {
+            workers.value = null
+            return
         }
+
+        const features = newGeojson.features.filter(
+            f => cleanCode(f.properties.country_code) === cleanCode(newCountry)
+        )
+
+        workers.value = features.length
+            ? features.map(f => f.properties)
+            : null
     })
 
-        watch(company, async (newCompany) => {
+    watch(company, async (newCompany) => {
         resetBranch()
         resetYear()
         country.value = null

@@ -560,7 +560,7 @@ function renderCountries(countryLookup) {
 function refreshCompany(pointsData) {
   if (!map.value || !countriesData.value || !pointsData) return
 
-  //updateFactoryPoint(store.company)
+  updateFactoryPoint(store.company)
   const filteredData = filterMapFeatures(pointsData)
   const countryLookup = buildPresentCountryLookup(filteredData)
   renderCountries(countryLookup)
@@ -600,7 +600,7 @@ watch(
       const props = f.properties || {}
 
       return (
-        String(extractCountryCode(props)).toUpperCase() === String(country).toUpperCase() ||
+        cleanCode(extractCountryCode(props)) === cleanCode(country) ||
         normalizeName(extractCountryName(props)) === normalizeName(country)
       )
     })
@@ -688,15 +688,19 @@ onMounted(async () => {
 
   countriesData.value = await fetchJson('/geojson/countries.geojson')
 
-  // factoryPoint.value = L.circleMarker(getCompanyConfig(store.company).factoryLatLng, {
-  //   pane: 'pointsPane',
-  //   radius: 6,
-  //   fillColor: '#14B8A6',
-  //   color: '#14B8A6',
-  //   weight: 2,
-  //   opacity: 1,
-  //   fillOpacity: 0.9
-  // }).addTo(map.value)
+  factoryPoint.value = L.marker(
+    getCompanyConfig(store.company).factoryLatLng,
+    {
+      //pane: 'pointsPane',
+      icon: L.divIcon({
+        className: 'leaflet-factory-icon',
+        html: `<i class="mdi mdi-factory"></i>`,
+        iconSize: [24, 24],
+        iconAnchor: [12, 12],
+      }),
+      interactive: false,
+    }
+  ).addTo(map.value)
   
   map.value.zoomControl.setPosition('bottomright')
 
@@ -891,5 +895,21 @@ html, body, #app {
   border: 1px solid white;
   opacity: 0.75;
   flex-shrink: 0;
+}
+
+.leaflet-factory-icon {
+  background: transparent !important;
+  border: none !important;
+  width: 24px !important;
+  height: 24px !important;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+}
+
+.leaflet-factory-icon .mdi {
+  font-size: 24px;
+  color: #4b4f4e;
+  line-height: 1;
 }
 </style>
