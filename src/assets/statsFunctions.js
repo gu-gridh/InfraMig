@@ -37,9 +37,8 @@ export const calcSNI = (workers) => {
 
 // calc average duration of migration for each country in the geojson, return sorted by duration descending
 
-export function getCountryDurationAverages(geojson) {
+export function getCountryDurationAverages(geojson, avgField = 'duration_avg') {
   const features = geojson?.features ?? []
-
   const seen = new Set()
 
   return features
@@ -49,7 +48,7 @@ export function getCountryDurationAverages(geojson) {
       return {
         country: props.country_en || props.country || props.name_en || props.ADMIN || props.name || 'Unknown',
         countryCode: props.ADM0_A3 || props.country_a3 || props.country_code || props.ISO_A3 || null,
-        avgDuration: Number(props.duration_avg),
+        avgDuration: Number(props[avgField]),
         workers: Number(props.country_count) || 1
       }
     })

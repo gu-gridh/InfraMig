@@ -15,6 +15,15 @@ const store = useStore()
 const chartEl = ref(null)
 let chart = null
 
+const avgField = computed(() => {
+  return store.year ? `avg${store.year}` : 'duration_avg'
+})
+
+const chartData = computed(() => {
+  if (!filteredGeojson.value) return []
+  return getCountryDurationAverages(filteredGeojson.value, avgField.value)
+})
+
 const filteredGeojson = computed(() => {
   if (!store.geojson) return null
 
@@ -36,11 +45,6 @@ const filteredGeojson = computed(() => {
       return matchesBranch && matchesYear
     })
   }
-})
-
-const chartData = computed(() => {
-  if (!filteredGeojson.value) return []
-  return getCountryDurationAverages(filteredGeojson.value)
 })
 
 const option = computed(() => ({
