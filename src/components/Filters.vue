@@ -149,8 +149,9 @@ onMounted(async () => {
 })
 
 watch(selectedCountry, (country) => {
-  store.country = country ?? null
-  store.fullName = countries.value.find(c => c.country_code === country)?.countries_eng || ''
+  store.country = country ? country.trim().toUpperCase() : null
+  store.fullName =
+    countries.value.find(c => c.country_code === store.country)?.countries_eng || ''
 })
 
 watch(selectedYear, (year) => {
