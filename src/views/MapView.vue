@@ -458,12 +458,17 @@ function renderCountries(countryLookup) {
         sizeLegend.value = null
       }
 
-    // function getRadius(count) {
-    //   const n = Number(count) || 1
-    //   const minRadius = 6
-    //   const maxRadius = 20
-    //   return minRadius + (Math.sqrt(n) / Math.sqrt(maxCount)) * (maxRadius - minRadius)
-    // }
+      function getAverageDays(props = {}) {
+      if (store.year) {
+        const yearlyValue = props[`avg${store.year}`]
+        return yearlyValue != null && yearlyValue !== ''
+          ? Number(yearlyValue)
+          : null
+      }
+      return props.duration_avg != null && props.duration_avg !== ''
+        ? Number(props.duration_avg)
+        : null
+    }
 
   const durationData = getCountryDurationAverages({
     ...pointsData,
@@ -502,7 +507,7 @@ function renderCountries(countryLookup) {
 
   const count = feature.properties?.country_count ?? 1
 
-  const durationAvg = feature.properties?.duration_avg
+  const durationAvg = getAverageDays(feature.properties)
     return L.circleMarker(latlng, {
       radius: getCircleRadius(count, maxCount),
       fillColor: getDurationColor(
@@ -520,11 +525,14 @@ function renderCountries(countryLookup) {
         const props = feature.properties || {}
         const country = extractCountryName(props) || 'Unknown country'
         const count = props.country_count || 1
+        const avgDays = getAverageDays(props)
 
         layer.bindPopup(`
           <strong>${country}</strong><br>
           Workers: ${count}<br>
-          Average: ${props.duration_avg ? props.duration_avg + ' days' : 'N/A'}
+          Average${store.year ? ` (${store.year})` : ''}: ${
+            avgDays != null ? avgDays + ' days' : 'N/A'
+          }
         `)
       }
     }

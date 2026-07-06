@@ -21,7 +21,7 @@ const filteredGeojson = computed(() => {
   return {
     ...store.geojson,
     features: store.geojson.features.filter(feature => {
-      const worker = feature.propertiesß
+      const worker = feature.properties
 
       const matchesBranch =
         !store.branch || worker.sni_code === store.branch
