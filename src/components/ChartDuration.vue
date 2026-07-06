@@ -36,6 +36,20 @@ const bins = [
   { label: '24+', min: 24, max: Infinity }
 ]
 
+const props = defineProps({
+  active: Boolean
+})
+
+function forceResizeChart() {
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      histogramChart?.resize()
+      timelineChart?.resize()
+      updateCharts()
+    })
+  })
+}
+
 const workers = computed(() => {
   const features = store.geojson?.features ?? []
 
@@ -192,28 +206,39 @@ function resizeCharts() {
 }
 
 watch(
-  () => [store.geojson, store.country, store.branch, store.year],
-  () => {
-    updateCharts()
-  },
-  { deep: true }
+  () => props.active,
+  active => {
+    if (active) {
+      forceResizeChart()
+    }
+  }
 )
 
-// redraw timeline when store changes
 watch(
-  () => store.year,
-  async (year) => {
-    if (year) {
-      histogramChart?.dispose()
-      histogramChart = null
-      return
-    }
+  () => [store.geojson, store.year, store.branch, store.country],
+  async () => {
     await nextTick()
-    if (histogramEl.value && !histogramChart) {
+
+    if (!timelineChart && timelineEl.value) {
+      timelineChart = echarts.init(timelineEl.value)
+    }
+
+    if (!store.year && !histogramChart && histogramEl.value) {
       histogramChart = echarts.init(histogramEl.value)
     }
+
+    if (store.year && histogramChart) {
+      histogramChart.dispose()
+      histogramChart = null
+    }
+
     updateCharts()
-  }
+
+    if (props.active) {
+      forceResizeChart()
+    }
+  },
+  { deep: true }
 )
 
 onMounted(async () => {

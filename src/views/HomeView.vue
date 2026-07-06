@@ -4,6 +4,7 @@
 
 <template>
   <div class="container">
+    <h1> InfraMig: Förmedling av temporär migration till det "Nya Gröna Norrland”</h1>
     <div class="home">
     <p>
       Det Nya Gröna Norrland lockar stora investeringar till norra Sverige och siktar på att bli en motor för grön innovation. En viktig del i denna omställning är byggandet av fabriker och infrastruktur, där tillfälliga migrantarbetare spelar en central, men ofta osynlig, roll. Projektet belyser deras betydelse och analyserar den infrastruktur som möjliggör och formar tillfällig arbetskraftsmigration samt de platser som den bidrar till att skapa. Projektet undersöker särskilt företagen Stegra, Boden, och SSAB, Luleå, i deras uppbyggnad av stålverk som producerar sk. grönt stål.
@@ -31,6 +32,10 @@
   font-size: 16px;
   line-height: 1.6;
   color: #333;
+}
+h1 {
+  text-align: center;
+  margin-bottom: 40px;
 }
 
 p {

@@ -15,13 +15,48 @@ const store = useStore()
 const chartEl = ref(null)
 let chart = null
 
+const props = defineProps({
+  active: Boolean
+})
+
+function resizeChart() {
+  chart?.resize()
+}
+
+function forceResizeChart() {
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      renderChart()
+      resizeChart()
+    })
+  })
+}
+
+watch(
+  () => props.active,
+  active => {
+    if (active) {
+      forceResizeChart()
+    }
+  }
+)
+
+const avgField = computed(() => {
+  return store.year ? `avg${store.year}` : 'duration_avg'
+})
+
+const chartData = computed(() => {
+  if (!filteredGeojson.value) return []
+  return getCountryDurationAverages(filteredGeojson.value, avgField.value)
+})
+
 const filteredGeojson = computed(() => {
   if (!store.geojson) return null
 
   return {
     ...store.geojson,
     features: store.geojson.features.filter(feature => {
-      const worker = feature.propertiesß
+      const worker = feature.properties
 
       const matchesBranch =
         !store.branch || worker.sni_code === store.branch
@@ -36,11 +71,6 @@ const filteredGeojson = computed(() => {
       return matchesBranch && matchesYear
     })
   }
-})
-
-const chartData = computed(() => {
-  if (!filteredGeojson.value) return []
-  return getCountryDurationAverages(filteredGeojson.value)
 })
 
 const option = computed(() => ({
@@ -92,19 +122,23 @@ onMounted(async () => {
   await nextTick()
   chart = echarts.init(chartEl.value)
   renderChart()
-  window.addEventListener('resize', chart.resize)
+  forceResizeChart()
+  window.addEventListener('resize', resizeChart)
 })
 
 watch(
-  () => [store.geojson, store.year, store.branch],
-  renderChart,
-  { 
-    deep: true 
-  }
+  () => [store.geojson, store.year, store.branch, store.country],
+  () => {
+    renderChart()
+    if (props.active) {
+      forceResizeChart()
+    }
+  },
+  { deep: true }
 )
 
 onBeforeUnmount(() => {
-  window.removeEventListener('resize', chart?.resize)
+  window.removeEventListener('resize', resizeChart)
   chart?.dispose()
   chart = null
 })

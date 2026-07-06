@@ -21,9 +21,31 @@ const months = [
 
 const years = ['2023', '2024', '2025', '2026']
 
+const props = defineProps({
+  active: Boolean
+})
+
 function resizeChart() {
   if (myChart) myChart.resize()
 }
+
+function forceResizeChart() {
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      updateChart(store.geojson)
+      resizeChart()
+    })
+  })
+}
+
+watch(
+  () => props.active,
+  active => {
+    if (active) {
+      forceResizeChart()
+    }
+  }
+)
 
 function parseDate(dateStr) {
   if (!dateStr) return null
@@ -155,23 +177,23 @@ function updateChart(geojson) {
 
 onMounted(async () => {
   await nextTick()
-
   myChart = echarts.init(chartEl.value)
 
-  if (!store.geojson) {
+  if (!store.geojson && !store.loadingGeojson) {
     await store.loadGeojson()
-  } else {
-    updateChart(store.geojson)
   }
-
+  updateChart(store.geojson)
+  forceResizeChart()
   window.addEventListener('resize', resizeChart)
-  resizeChart()
 })
 
 watch(
-  () => [store.geojson, store.country, store.branch],
+  () => [store.geojson, store.country, store.branch, store.year],
   () => {
     updateChart(store.geojson)
+    if (props.active) {
+      forceResizeChart()
+    }
   },
   { immediate: true, deep: true }
 )
