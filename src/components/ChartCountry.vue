@@ -15,6 +15,32 @@ const store = useStore()
 const chartEl = ref(null)
 let chart = null
 
+const props = defineProps({
+  active: Boolean
+})
+
+function resizeChart() {
+  chart?.resize()
+}
+
+function forceResizeChart() {
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      renderChart()
+      resizeChart()
+    })
+  })
+}
+
+watch(
+  () => props.active,
+  active => {
+    if (active) {
+      forceResizeChart()
+    }
+  }
+)
+
 const avgField = computed(() => {
   return store.year ? `avg${store.year}` : 'duration_avg'
 })
@@ -96,19 +122,23 @@ onMounted(async () => {
   await nextTick()
   chart = echarts.init(chartEl.value)
   renderChart()
-  window.addEventListener('resize', chart.resize)
+  forceResizeChart()
+  window.addEventListener('resize', resizeChart)
 })
 
 watch(
-  () => [store.geojson, store.year, store.branch],
-  renderChart,
-  { 
-    deep: true 
-  }
+  () => [store.geojson, store.year, store.branch, store.country],
+  () => {
+    renderChart()
+    if (props.active) {
+      forceResizeChart()
+    }
+  },
+  { deep: true }
 )
 
 onBeforeUnmount(() => {
-  window.removeEventListener('resize', chart?.resize)
+  window.removeEventListener('resize', resizeChart)
   chart?.dispose()
   chart = null
 })

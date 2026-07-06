@@ -10,15 +10,23 @@
             <v-divider></v-divider>
 
             <v-tabs-window v-model="tab">
-                <v-tabs-window-item value="one">
-                <v-sheet><ChartDuration /></v-sheet>
-                </v-tabs-window-item>
-                <v-tabs-window-item value="two">
-                <v-sheet><ChartYearly /></v-sheet>
-                </v-tabs-window-item>
-                <v-tabs-window-item value="three" v-if="!store.country">
-                <v-sheet><ChartCountry /></v-sheet>
-                </v-tabs-window-item>
+            <v-tabs-window-item value="one">
+                <v-sheet class="chart-sheet">
+                <ChartDuration :active="tab === 'one'" />
+                </v-sheet>
+            </v-tabs-window-item>
+
+            <v-tabs-window-item value="two">
+                <v-sheet class="chart-sheet">
+                <ChartYearly :active="tab === 'two'" />
+                </v-sheet>
+            </v-tabs-window-item>
+
+            <v-tabs-window-item value="three" v-if="!store.country">
+                <v-sheet class="chart-sheet">
+                <ChartCountry :active="tab === 'three'" />
+                </v-sheet>
+            </v-tabs-window-item>
             </v-tabs-window>
         </v-sheet>
     </div>
@@ -41,5 +49,12 @@ const store = useStore()
 .tabs {
   max-width: 100%;
   margin: 0 auto;
+}
+
+.tabs,
+.tabs :deep(.v-sheet),
+.tabs :deep(.v-window),
+.tabs :deep(.v-window-item) {
+  width: 100%;
 }
 </style>
