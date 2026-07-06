@@ -81,48 +81,66 @@ function featureMatchesCountry(feature, country) {
 }
 
 function getCircleRadius(count, maxCount) {
-  const n = Number(count) || 1
+  const n = Math.max(Number(count) || 1, 1)
+  const max = Math.max(Number(maxCount) || 1, 1)
   const minRadius = 6
   const maxRadius = 20
-
-  return minRadius + (Math.sqrt(n) / Math.sqrt(maxCount)) * (maxRadius - minRadius)
+  if (max === 1) return minRadius
+  return minRadius + (Math.sqrt(n) / Math.sqrt(max)) * (maxRadius - minRadius)
 }
 
 function renderSizeLegend(maxCount) {
   sizeLegend.value?.remove()
 
-  const values = [
-    50,
-    Math.round(2000/ 4),
-    Math.round(2000 / 2),
-    2000
-  ].filter((v, i, arr) => v > 0 && arr.indexOf(v) === i)
+  const safeMax = Math.max(Number(maxCount) || 1, 1)
 
+  const candidates = [10, 25, 50, 100, 200, 500, 1000, 2000, 3000]
+
+  const nextIndex = candidates.findIndex(v => v > safeMax)
+
+  let values
+
+  if (nextIndex === -1) {
+    // Larger than our biggest candidate
+    values = candidates.slice(-4)
+  } else {
+    // Show the previous 3 values + the next larger one
+    const start = Math.max(0, nextIndex - 3)
+    values = candidates.slice(start, nextIndex + 1)
+  }
+
+  // If the dataset is tiny, ensure at least 3 legend entries
+  while (values.length < 3) {
+    const index = candidates.indexOf(values[0])
+    if (index <= 0) break
+    values.unshift(candidates[index - 1])
+  }
   sizeLegend.value = L.control({ position: 'bottomleft' })
-
   sizeLegend.value.onAdd = () => {
     const div = L.DomUtil.create('div', 'size-legend')
 
     div.innerHTML = `
       <div class="legend-title">Workers</div>
 
-      ${values.map(value => `
-        <div class="size-legend-row">
-          <span
-            class="size-legend-circle"
-            style="
-              width:${getCircleRadius(value, 2000) * 2}px;
-              height:${getCircleRadius(value, 2000) * 2}px;
-            "
-          ></span>
-          <span>${value}</span>
-        </div>
-      `).join('')}
-    `
+      ${values.map(value => {
+        const radius = getCircleRadius(Math.min(value, safeMax), safeMax)
 
+        return `
+          <div class="size-legend-row">
+            <span
+              class="size-legend-circle"
+              style="
+                width:${radius * 2}px;
+                height:${radius * 2}px;
+              "
+            ></span>
+            <span>${value.toLocaleString()}</span>
+          </div>
+        `
+      }).join('')}
+    `
     return div
   }
-
   sizeLegend.value.addTo(map.value)
 }
 
