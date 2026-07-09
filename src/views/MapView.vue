@@ -234,29 +234,50 @@ const DURATION_COLORS = [
 ]
 
 function getDurationColor(days) {
-  if (days < 50) return '#5e4fa2'
-  if (days < 100) return '#3288bd'
-  if (days < 150) return '#66c2a5'
-  if (days < 200) return '#91cf60'
-  if (days < 300) return '#d9ef8b'
-  if (days < 500) return '#fee08b'
-  if (days < 1000) return '#fc8d59'
-  return '#d73027'
-}
+  if (days == null || Number.isNaN(days)) return '#999'
+
+  if (store.year) {
+    if (days < 50) return '#5e4fa2'
+    if (days < 100) return '#3288bd'
+    if (days < 150) return '#66c2a5'
+    if (days < 200) return '#91cf60'
+    if (days < 250) return '#d9ef8b'
+    if (days < 300) return '#fee08b'
+    return '#d73027' // 300–365
+  }
+    if (days < 50) return '#5e4fa2'
+    if (days < 100) return '#3288bd'
+    if (days < 150) return '#66c2a5'
+    if (days < 200) return '#91cf60'
+    if (days < 300) return '#d9ef8b'
+    if (days < 500) return '#fee08b'
+    if (days < 1000) return '#fc8d59'
+    return '#d73027'
+  }
 
 function renderDurationLegend(min, max) {
   durationLegend.value?.remove()
 
-  const ranges = [
-    [1, 50],
-    [50, 100],
-    [100, 150],
-    [150, 200],
-    [200, 300],
-    [300, 500],
-    [500, 1000],
-    [1000, 1500],
-  ]
+  const ranges = store.year
+    ? [
+        [1, 50],
+        [50, 100],
+        [100, 150],
+        [150, 200],
+        [200, 250],
+        [250, 300],
+        [300, 365],
+      ]
+    : [
+        [1, 50],
+        [50, 100],
+        [100, 150],
+        [150, 200],
+        [200, 300],
+        [300, 500],
+        [500, 1000],
+        [1000, 1500],
+      ]
 
   durationLegend.value = L.control({ position: 'bottomleft' })
 
@@ -476,17 +497,22 @@ function renderCountries(countryLookup) {
         sizeLegend.value = null
       }
 
-      function getAverageDays(props = {}) {
-      if (store.year) {
-        const yearlyValue = props[`avg${store.year}`]
-        return yearlyValue != null && yearlyValue !== ''
-          ? Number(yearlyValue)
-          : null
-      }
-      return props.duration_avg != null && props.duration_avg !== ''
-        ? Number(props.duration_avg)
+  function getAverageDays(props = {}) {
+    let value = null
+    if (store.year) {
+      const yearlyValue = props[`avg${store.year}`]
+      value = yearlyValue != null && yearlyValue !== ''
+        ? Number(yearlyValue)
         : null
+
+      // cap yearly average to max 365 days
+      return value != null ? Math.min(value, 365) : null
     }
+    value = props.duration_avg != null && props.duration_avg !== ''
+      ? Number(props.duration_avg)
+      : null
+    return value
+  }
 
   const durationData = getCountryDurationAverages({
     ...pointsData,

@@ -21,6 +21,13 @@ const months = [
 
 const years = ['2023', '2024', '2025', '2026']
 
+const yearColors = {
+  2023: '#5470c6',
+  2024: '#91cc75',
+  2025: '#facc15', 
+  2026: '#ee6666'
+}
+
 const props = defineProps({
   active: Boolean
 })
@@ -139,9 +146,13 @@ function updateChart(geojson) {
       coordinateSystem: 'singleAxis',
       type: 'scatter',
       data: [],
+      itemStyle: {
+        color: yearColors[year]
+      },
       symbolSize(dataItem) {
         const value = dataItem[1]
         if (value === 0) return 0
+
         const minSize = 5
         const maxSize = 30
 
