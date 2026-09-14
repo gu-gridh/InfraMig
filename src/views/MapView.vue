@@ -705,8 +705,8 @@ onMounted(async () => {
   const pointsPane = map.value.createPane('pointsPane')
   pointsPane.style.zIndex = 400
 
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png', {
-    attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+  L.tileLayer(`https://basemaps.cartocdn.com/rastertiles/light_nolabels/{z}/{x}/{y}.png?key=${import.meta.env.VITE_API_KEY}`, {
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>, &copy; <a href="https://carto.com/attributions">CARTO</a>',
     subdomains: 'abcd',
     maxZoom: 20,
     noWrap: true
