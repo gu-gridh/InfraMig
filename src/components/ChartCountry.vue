@@ -47,7 +47,18 @@ const avgField = computed(() => {
 
 const chartData = computed(() => {
   if (!filteredGeojson.value) return []
-  return getCountryDurationAverages(filteredGeojson.value, avgField.value)
+
+  const data = getCountryDurationAverages(
+    filteredGeojson.value,
+    avgField.value
+  )
+
+  if (!store.year) return data
+
+  return data.map(row => ({
+    ...row,
+    avgDuration: Math.min(row.avgDuration, 365)
+  }))
 })
 
 const filteredGeojson = computed(() => {

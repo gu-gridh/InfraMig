@@ -19,7 +19,7 @@ const months = [
   'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
 ]
 
-const years = ['2023', '2024', '2025', '2026']
+const years = ['2023', '2024', '2025', ] //2026 removed
 
 const yearColors = {
   2023: '#5470c6',

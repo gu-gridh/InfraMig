@@ -36,8 +36,9 @@
         <v-select
           v-model="selectedYear"
           :items="years"
+          item-title="title"
+          item-value="value"
           label="Select year"
-          clearable
           variant="outlined"
           density="compact"
         />
@@ -85,7 +86,13 @@ import { branchFullNames } from '@/assets/statsFunctions.js'
 
 const countries = ref([''])
 const branches = ref([''])
-const years = ref([2023, 2024, 2025, 2026])
+const years = ref([
+  { title: '2023–2026', value: null },
+  { title: '2023', value: 2023 },
+  { title: '2024', value: 2024 },
+  { title: '2025', value: 2025 },
+  { title: '2026', value: 2026 }
+])
 
 const selectedCountry = ref(null)
 const selectedYear = ref(null)
