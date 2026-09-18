@@ -89,7 +89,7 @@ function getCircleRadius(count, maxCount) {
   return minRadius + (Math.sqrt(n) / Math.sqrt(max)) * (maxRadius - minRadius)
 }
 
-function renderSizeLegend(maxCount) {
+function renderSizeLegend(maxCount, totalWorkers) {
   sizeLegend.value?.remove()
 
   const safeMax = Math.max(Number(maxCount) || 1, 1)
@@ -121,6 +121,7 @@ function renderSizeLegend(maxCount) {
 
     div.innerHTML = `
       <div class="legend-title">Workers</div>
+      <div class="legend-total">Total: ${totalWorkers.toLocaleString()}</div>
 
       ${values.map(value => {
         const radius = getCircleRadius(Math.min(value, safeMax), safeMax)
@@ -473,6 +474,20 @@ function renderCountries(countryLookup) {
       )
     }
 
+    const filteredCountryCounts = new Map()
+    for (const feature of features) {
+      const props = feature.properties || {}
+      const key =
+        cleanCode(extractCountryCode(props)) ||
+        normalizeName(extractCountryName(props))
+
+      if (!key) continue
+      filteredCountryCounts.set(
+        key,
+        (filteredCountryCounts.get(key) || 0) + 1
+      )
+}
+
   const seenCountries = new Set()
 
   const uniqueCountryFeatures = features.filter((feature) => {
@@ -485,13 +500,21 @@ function renderCountries(countryLookup) {
     return true
   })
 
-  const counts = uniqueCountryFeatures.map(
-    (feature) => Number(feature.properties?.country_count) || 1
-    )
+  const counts = uniqueCountryFeatures.map(feature => {
+    const props = feature.properties || {}
+
+    const key =
+      cleanCode(extractCountryCode(props)) ||
+      normalizeName(extractCountryName(props))
+
+    return filteredCountryCounts.get(key) || 1
+  })
+
     const maxCount = Math.max(...counts, 1)
+    const totalWorkers = features.length
 
       if (!store.country) {
-        renderSizeLegend(maxCount)
+        renderSizeLegend(maxCount, totalWorkers)
       } else {
         sizeLegend.value?.remove()
         sizeLegend.value = null
@@ -549,7 +572,11 @@ function renderCountries(countryLookup) {
     })
   }
 
-  const count = feature.properties?.country_count ?? 1
+  const props = feature.properties || {}
+  const key =
+    cleanCode(extractCountryCode(props)) ||
+    normalizeName(extractCountryName(props))
+  const count = filteredCountryCounts.get(key) || 1
 
   const durationAvg = getAverageDays(feature.properties)
     return L.circleMarker(latlng, {
@@ -568,8 +595,13 @@ function renderCountries(countryLookup) {
       onEachFeature: (feature, layer) => {
         const props = feature.properties || {}
         const country = extractCountryName(props) || 'Unknown country'
-        const count = props.country_count || 1
         const avgDays = getAverageDays(props)
+
+        const key =
+          cleanCode(extractCountryCode(props)) ||
+          normalizeName(extractCountryName(props))
+
+        const count = filteredCountryCounts.get(key) || 1
 
         layer.bindPopup(`
           <strong>${country}</strong><br>
