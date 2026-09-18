@@ -30,9 +30,9 @@ export const useStore = defineStore('company', () => {
         let url = ''
 
         if (selectedCompany === 'stegra') {
-            url = '/geojson/stegra/stegra.geojson'
+            url = '/geojson/stegra/stegraOver10.geojson'
         } else if (selectedCompany === 'ssab') {
-            url = '/geojson/ssab/ssab.geojson'
+            url = '/geojson/ssab/ssabOver10.geojson'
         } else {
             console.warn('Unknown company:', selectedCompany)
             return

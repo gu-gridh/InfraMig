@@ -32,10 +32,6 @@
     "country_code":"POL"
   },
   {
-    "countries_eng":"South Africa",
-    "country_code":"ZAF"
-  },
-  {
     "countries_eng":"Hong Kong",
     "country_code":"HKG"
   },
@@ -60,10 +56,6 @@
     "country_code":"ITA"
   },
   {
-    "countries_eng":"Cyprus",
-    "country_code":"CYP"
-  },
-  {
     "countries_eng":"Slovakia",
     "country_code":"SVK"
   },
@@ -76,24 +68,12 @@
     "country_code":"DNK"
   },
   {
-    "countries_eng":"India",
-    "country_code":"IND"
-  },
-  {
     "countries_eng":"Norway",
     "country_code":"NOR"
   },
   {
     "countries_eng":"Singapore",
     "country_code":"SGP"
-  },
-  {
-    "countries_eng":"Switzerland",
-    "country_code":"CHE"
-  },
-  {
-    "countries_eng":"Belgium",
-    "country_code":"BEL"
   },
   {
     "countries_eng":"Hungary",
@@ -110,9 +90,5 @@
   {
     "countries_eng":"Croatia",
     "country_code":"HRV"
-  },
-  {
-    "countries_eng":"Slovenia",
-    "country_code":"SVN"
   }
 ]

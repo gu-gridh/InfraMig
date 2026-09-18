@@ -50,11 +50,11 @@ const mapReady = ref(false)
 
 const COMPANY_CONFIG = {
   ssab: {
-    file: '/geojson/ssab/ssab.geojson',
+    file: '/geojson/ssab/ssabOver10.geojson',
     factoryLatLng: [65.56347, 22.19981]
   },
   stegra: {
-    file: '/geojson/stegra/stegra.geojson',
+    file: '/geojson/stegra/stegraOver10.geojson',
     factoryLatLng: [65.805389, 21.75914]
   }
 }

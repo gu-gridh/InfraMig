@@ -8,24 +8,12 @@
         "country_code":"CZE"
     },
     {
-        "countries_eng":"Estonia",
-        "country_code":"EST"
-    },
-    {
         "countries_eng":"Finland",
         "country_code":"FIN"
     },
     {
         "countries_eng":"Germany",
         "country_code":"DEU"
-    },
-    {
-        "countries_eng":"Ireland",
-        "country_code":"IRL"
-    },
-    {
-        "countries_eng":"Italy",
-        "country_code":"ITA"
     },
     {
         "countries_eng":"Latvia",
@@ -36,24 +24,8 @@
         "country_code":"LTU"
     },
     {
-        "countries_eng":"Luxembourg",
-        "country_code":"LUX"
-    },
-    {
-        "countries_eng":"Norway",
-        "country_code":"NOR"
-    },
-    {
-        "countries_eng":"Poland",
-        "country_code":"POL"
-    },
-    {
         "countries_eng":"Portugal",
         "country_code":"PRT"
-    },
-    {
-        "countries_eng":"Spain",
-        "country_code":"ESP"
     },
     {
         "countries_eng":"United Kingdom",
