@@ -35,30 +35,108 @@ export const calcSNI = (workers) => {
     return sortedBranchCounts
 }
 
-// calc average duration of migration for each country in the geojson, return sorted by duration descending
+// Calculate average migration duration for each country.
+// When avgField is duration_avg, use the existing overall average.
+// When avgField is a year (e.g. avg2006), calculate the average
+// number of days each worker was present during that year.
 
 export function getCountryDurationAverages(geojson, avgField = 'duration_avg') {
   const features = geojson?.features ?? []
-  const seen = new Set()
+  const countries = new Map()
 
-  return features
-    .map(feature => {
-      const props = feature.properties ?? {}
+  const isYearField = /^avg\d{4}$/.test(avgField)
+  const year = isYearField
+    ? Number(avgField.replace('avg', ''))
+    : null
 
-      return {
-        country: props.country_en || props.country || props.name_en || props.ADMIN || props.name || 'Unknown',
-        countryCode: props.ADM0_A3 || props.country_a3 || props.country_code || props.ISO_A3 || null,
-        avgDuration: Number(props[avgField]),
-        workers: Number(props.country_count) || 1
+  function getDaysInYear(props, year) {
+    const start = new Date(props.startdate)
+    const end = props.enddate
+      ? new Date(props.enddate)
+      : new Date(year, 11, 31, 23, 59, 59)
+
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+      return 0
+    }
+
+    const yearStart = new Date(year, 0, 1)
+    const yearEnd = new Date(year, 11, 31, 23, 59, 59)
+
+    // Worker was not present during this year
+    if (start > yearEnd || end < yearStart) {
+      return 0
+    }
+
+    const effectiveStart = start > yearStart
+      ? start
+      : yearStart
+
+    const effectiveEnd = end < yearEnd
+      ? end
+      : yearEnd
+
+    const millisecondsPerDay = 1000 * 60 * 60 * 24
+
+    return (effectiveEnd - effectiveStart) / millisecondsPerDay
+  }
+
+  for (const feature of features) {
+    const props = feature.properties ?? {}
+
+    const country =
+      props.country_en ||
+      props.country ||
+      props.name_en ||
+      props.ADMIN ||
+      props.name ||
+      'Unknown'
+
+    const countryCode =
+      props.ADM0_A3 ||
+      props.country_a3 ||
+      props.country_code ||
+      props.ISO_A3 ||
+      null
+
+    const key = countryCode || country.toLowerCase()
+
+    if (!countries.has(key)) {
+      countries.set(key, {
+        country,
+        countryCode,
+        totalDays: 0,
+        workers: 0,
+        overallAverage: null
+      })
+    }
+
+    const data = countries.get(key)
+
+    data.workers += 1
+
+    if (year) {
+      data.totalDays += getDaysInYear(props, year)
+    } else {
+      const value = Number(props[avgField])
+
+      if (Number.isFinite(value)) {
+        data.overallAverage = value
       }
-    })
+    }
+  }
+
+  return [...countries.values()]
+    .map(data => ({
+      country: data.country,
+      countryCode: data.countryCode,
+
+      avgDuration: year
+        ? Math.min(data.totalDays / data.workers, 365)
+        : data.overallAverage,
+
+      workers: data.workers
+    }))
     .filter(row => Number.isFinite(row.avgDuration))
-    .filter(row => {
-      const key = row.countryCode || row.country.toLowerCase()
-      if (seen.has(key)) return false
-      seen.add(key)
-      return true
-    })
     .sort((a, b) => b.avgDuration - a.avgDuration)
 }
 

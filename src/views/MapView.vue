@@ -91,15 +91,10 @@ function getCircleRadius(count, maxCount) {
 
 function renderSizeLegend(maxCount, totalWorkers) {
   sizeLegend.value?.remove()
-
   const safeMax = Math.max(Number(maxCount) || 1, 1)
-
   const candidates = [10, 25, 50, 100, 200, 500, 1000, 2000, 3000]
-
   const nextIndex = candidates.findIndex(v => v > safeMax)
-
   let values
-
   if (nextIndex === -1) {
     // Larger than our biggest candidate
     values = candidates.slice(-4)
@@ -444,6 +439,37 @@ function renderCountries(countryLookup) {
     }
   }).addTo(map.value)
 }
+  // dont show countries with less than 10 workers
+  function filterCountriesByWorkerCount(features, minWorkers = 10) {
+  const countryCounts = new Map()
+
+  // Count workers per country
+  for (const feature of features) {
+    const props = feature.properties || {}
+
+    const key =
+      cleanCode(extractCountryCode(props)) ||
+      normalizeName(extractCountryName(props))
+
+    if (!key) continue
+
+    countryCounts.set(
+      key,
+      (countryCounts.get(key) || 0) + 1
+    )
+  }
+
+  // Keep only workers from countries with >= minWorkers
+  return features.filter(feature => {
+    const props = feature.properties || {}
+
+    const key =
+      cleanCode(extractCountryCode(props)) ||
+      normalizeName(extractCountryName(props))
+
+    return (countryCounts.get(key) || 0) >= minWorkers
+  })
+}
 
   function buildCompanyLayer(pointsData) {
     function featureMatchesBranch(feature, branch) {
@@ -456,23 +482,6 @@ function renderCountries(countryLookup) {
     }
 
     let features = pointsData.features ?? []
-
-    //check store and filter out features
-    if (store.country) {
-      features = features.filter(feature =>
-        featureMatchesCountry(feature, store.country)
-      )
-    }
-    if (store.branch) {
-      features = features.filter(feature =>
-        featureMatchesBranch(feature, store.branch)
-      )
-    }
-    if (store.year) {
-      features = features.filter(feature =>
-        featureMatchesYear(feature, store.year)
-      )
-    }
 
     const filteredCountryCounts = new Map()
     for (const feature of features) {
@@ -520,27 +529,18 @@ function renderCountries(countryLookup) {
         sizeLegend.value = null
       }
 
-  function getAverageDays(props = {}) {
-    let value = null
-    if (store.year) {
-      const yearlyValue = props[`avg${store.year}`]
-      value = yearlyValue != null && yearlyValue !== ''
-        ? Number(yearlyValue)
-        : null
-
-      // cap yearly average to max 365 days
-      return value != null ? Math.min(value, 365) : null
-    }
-    value = props.duration_avg != null && props.duration_avg !== ''
-      ? Number(props.duration_avg)
-      : null
-    return value
-  }
-
   const durationData = getCountryDurationAverages({
     ...pointsData,
-    features: uniqueCountryFeatures
-  })
+    features
+  }, store.year ? `avg${store.year}` : 'duration_avg')
+
+  const durationLookup = new Map()
+  for (const row of durationData) {
+    const key =
+      cleanCode(row.countryCode) ||
+      normalizeName(row.country)
+      durationLookup.set(key, row.avgDuration)
+  }
   
   const durations = durationData.map(d => d.avgDuration)
   const minDuration = Math.min(...durations)
@@ -578,36 +578,39 @@ function renderCountries(countryLookup) {
     normalizeName(extractCountryName(props))
   const count = filteredCountryCounts.get(key) || 1
 
-  const durationAvg = getAverageDays(feature.properties)
-    return L.circleMarker(latlng, {
-      radius: getCircleRadius(count, maxCount),
-      fillColor: getDurationColor(
-        durationAvg,
-        minDuration,
-        maxDuration
-      ),
-      color: '#ffffff',
-      weight: 1,
-      opacity: 1,
-      fillOpacity: 0.9
-    })
+  const durationAvg = durationLookup.get(key) ?? null
+
+  return L.circleMarker(latlng, {
+    radius: getCircleRadius(count, maxCount),
+    fillColor: getDurationColor(
+      durationAvg,
+      minDuration,
+      maxDuration
+    ),
+    color: '#ffffff',
+    weight: 1,
+    opacity: 1,
+    fillOpacity: 0.9
+  })
   },
       onEachFeature: (feature, layer) => {
         const props = feature.properties || {}
         const country = extractCountryName(props) || 'Unknown country'
-        const avgDays = getAverageDays(props)
 
         const key =
           cleanCode(extractCountryCode(props)) ||
           normalizeName(extractCountryName(props))
 
         const count = filteredCountryCounts.get(key) || 1
+        const avgDays = durationLookup.get(key) ?? null
 
-        layer.bindPopup(`
+         layer.bindPopup(`
           <strong>${country}</strong><br>
           Workers: ${count}<br>
           Average${store.year ? ` (${store.year})` : ''}: ${
-            avgDays != null ? avgDays + ' days' : 'N/A'
+            avgDays != null
+              ? Math.round(avgDays) + ' days'
+              : 'N/A'
           }
         `)
       }
@@ -619,7 +622,10 @@ function refreshCompany(pointsData) {
   if (!map.value || !countriesData.value || !pointsData) return
 
   updateFactoryPoint(store.company)
-  const filteredData = filterMapFeatures(pointsData)
+  const filteredData = {
+    ...pointsData,
+    features: store.getFilteredFeatures(pointsData)
+  }
   const countryLookup = buildPresentCountryLookup(filteredData)
   renderCountries(countryLookup)
   companyGeoJsonLayer.value?.remove()
@@ -641,8 +647,7 @@ watch(
     if (country) {
       durationLegend.value?.remove()
       durationLegend.value = null
-      const filteredData = filterMapFeatures(store.geojson)
-      const workers = filteredData.features.map(f => f.properties)
+      const workers = store.getFilteredWorkers()
       SNI_stats.value = statsFunctions.calcSNI(workers)
       renderCountryLegend(workers)
     } else {
@@ -676,34 +681,6 @@ watch(
     }
   }
 )
-
-function featureMatchesYear(feature, year) {
-  if (!year) return true
-
-  const props = feature.properties || {}
-  if (!props.startdate) return false
-
-  const start = new Date(props.startdate)
-  const end = props.enddate ? new Date(props.enddate) : new Date()
-
-  const yearStart = new Date(year, 0, 1)
-  const yearEnd = new Date(year, 11, 31, 23, 59, 59)
-
-  return start <= yearEnd && end >= yearStart
-}
-
-function filterMapFeatures(pointsData) {
-  return {
-    ...pointsData,
-    features: (pointsData.features ?? []).filter(feature => {
-      return (
-        (!store.country || featureMatchesCountry(feature, store.country)) &&
-        (!store.branch || String(feature.properties?.sni_code || '').toUpperCase() === String(store.branch).toUpperCase()) &&
-        featureMatchesYear(feature, store.year)
-      )
-    })
-  }
-}
 
 watch(
   [() => store.geojson, mapReady, () => store.branch, () => store.year],
