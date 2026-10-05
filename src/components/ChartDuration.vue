@@ -51,20 +51,7 @@ function forceResizeChart() {
 }
 
 const workers = computed(() => {
-  const features = store.geojson?.features ?? []
-
-  return features
-    .map(feature => feature.properties)
-    .filter(worker => worker?.startdate)
-    .filter(worker => {
-      const matchesCountry =
-        !store.country || worker.country_code === store.country
-
-      const matchesBranch =
-        !store.branch || worker.sni_code === store.branch
-
-      return matchesCountry && matchesBranch
-    })
+  return store.getFilteredWorkers().filter(worker => worker?.startdate)
 })
 
 const histogramCounts = computed(() => {

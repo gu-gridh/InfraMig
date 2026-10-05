@@ -483,23 +483,6 @@ function renderCountries(countryLookup) {
 
     let features = pointsData.features ?? []
 
-    //check store and filter out features
-    if (store.country) {
-      features = features.filter(feature =>
-        featureMatchesCountry(feature, store.country)
-      )
-    }
-    if (store.branch) {
-      features = features.filter(feature =>
-        featureMatchesBranch(feature, store.branch)
-      )
-    }
-    if (store.year) {
-      features = features.filter(feature =>
-        featureMatchesYear(feature, store.year)
-      )
-    }
-
     const filteredCountryCounts = new Map()
     for (const feature of features) {
       const props = feature.properties || {}
@@ -545,23 +528,6 @@ function renderCountries(countryLookup) {
         sizeLegend.value?.remove()
         sizeLegend.value = null
       }
-
-  function getAverageDays(props = {}) {
-    let value = null
-    if (store.year) {
-      const yearlyValue = props[`avg${store.year}`]
-      value = yearlyValue != null && yearlyValue !== ''
-        ? Number(yearlyValue)
-        : null
-
-      // cap yearly average to max 365 days
-      return value != null ? Math.min(value, 365) : null
-    }
-    value = props.duration_avg != null && props.duration_avg !== ''
-      ? Number(props.duration_avg)
-      : null
-    return value
-  }
 
   const durationData = getCountryDurationAverages({
     ...pointsData,
@@ -656,7 +622,10 @@ function refreshCompany(pointsData) {
   if (!map.value || !countriesData.value || !pointsData) return
 
   updateFactoryPoint(store.company)
-  const filteredData = filterMapFeatures(pointsData)
+  const filteredData = {
+    ...pointsData,
+    features: store.getFilteredFeatures(pointsData)
+  }
   const countryLookup = buildPresentCountryLookup(filteredData)
   renderCountries(countryLookup)
   companyGeoJsonLayer.value?.remove()
@@ -678,8 +647,7 @@ watch(
     if (country) {
       durationLegend.value?.remove()
       durationLegend.value = null
-      const filteredData = filterMapFeatures(store.geojson)
-      const workers = filteredData.features.map(f => f.properties)
+      const workers = store.getFilteredWorkers()
       SNI_stats.value = statsFunctions.calcSNI(workers)
       renderCountryLegend(workers)
     } else {
@@ -713,41 +681,6 @@ watch(
     }
   }
 )
-
-function featureMatchesYear(feature, year) {
-  if (!year) return true
-
-  const props = feature.properties || {}
-  if (!props.startdate) return false
-
-  const start = new Date(props.startdate)
-  const end = props.enddate ? new Date(props.enddate) : new Date()
-
-  const yearStart = new Date(year, 0, 1)
-  const yearEnd = new Date(year, 11, 31, 23, 59, 59)
-
-  return start <= yearEnd && end >= yearStart
-}
-
-function filterMapFeatures(pointsData) {
-  const filteredFeatures = (pointsData.features ?? []).filter(feature => {
-    return (
-      (!store.country || featureMatchesCountry(feature, store.country)) &&
-      (!store.branch ||
-        String(feature.properties?.sni_code || '').toUpperCase() ===
-        String(store.branch).toUpperCase()) &&
-      featureMatchesYear(feature, store.year)
-    )
-  })
-
-  const featuresWithEnoughWorkers =
-    filterCountriesByWorkerCount(filteredFeatures, 10)
-
-  return {
-    ...pointsData,
-    features: featuresWithEnoughWorkers
-  }
-}
 
 watch(
   [() => store.geojson, mapReady, () => store.branch, () => store.year],

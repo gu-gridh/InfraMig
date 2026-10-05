@@ -63,30 +63,107 @@ function parseDate(dateStr) {
 
 
 function getMonthlyDataFromGeoJSON(features) {
-  const yearToIndex = Object.fromEntries(years.map((y, i) => [Number(y), i]))
+  const yearToIndex = Object.fromEntries(
+    years.map((y, i) => [Number(y), i])
+  )
+
   const counts = {}
+
   years.forEach((year, yearIndex) => {
     for (let monthIndex = 0; monthIndex < 12; monthIndex++) {
       counts[`${yearIndex}-${monthIndex}`] = 0
     }
   })
 
-  for (const feature of features) {
-    const props = feature.properties || {}
-    const start = parseDate(props.startdate)
-    const end = parseDate(props.enddate) || new Date()
-    if (!start || !end) continue
-    if (start > end) continue
-    const current = new Date(start.getFullYear(), start.getMonth(), 1)
-    const last = new Date(end.getFullYear(), end.getMonth(), 1)
-    while (current <= last) {
-      const year = current.getFullYear()
-      const month = current.getMonth()
-      const yearIndex = yearToIndex[year]
-      if (yearIndex !== undefined) {
-        counts[`${yearIndex}-${month}`] += 1
+  for (const year of years) {
+    // Workers active during this year
+    const yearFeatures = features.filter(feature => {
+      const props = feature.properties || {}
+      const start = parseDate(props.startdate)
+      const end = parseDate(props.enddate) || new Date()
+
+      if (!start || !end || start > end) return false
+
+      const yearStart = new Date(Number(year), 0, 1)
+      const yearEnd = new Date(Number(year), 11, 31, 23, 59, 59)
+
+      return start <= yearEnd && end >= yearStart
+    })
+
+    // Count workers per country for this year
+    const countryCounts = new Map()
+
+    for (const feature of yearFeatures) {
+      const props = feature.properties || {}
+
+      const country =
+        String(
+          props.country_code ||
+          props.ADM0_A3 ||
+          props.country_a3 ||
+          props.ISO_A3 ||
+          ''
+        )
+          .trim()
+          .toUpperCase()
+
+      if (!country) continue
+
+      countryCounts.set(
+        country,
+        (countryCounts.get(country) || 0) + 1
+      )
+    }
+
+    // Keep only countries with >= 10 workers in this year
+    const qualifyingFeatures = yearFeatures.filter(feature => {
+      const props = feature.properties || {}
+
+      const country =
+        String(
+          props.country_code ||
+          props.ADM0_A3 ||
+          props.country_a3 ||
+          props.ISO_A3 ||
+          ''
+        )
+          .trim()
+          .toUpperCase()
+
+      return (countryCounts.get(country) || 0) >= 10
+    })
+
+    // Count those workers by month
+    for (const feature of qualifyingFeatures) {
+      const props = feature.properties || {}
+      const start = parseDate(props.startdate)
+      const end = parseDate(props.enddate) || new Date()
+
+      const current = new Date(
+        Math.max(start.getTime(), new Date(Number(year), 0, 1).getTime())
+      )
+
+      current.setDate(1)
+
+      const last = new Date(
+        Math.min(
+          end.getTime(),
+          new Date(Number(year), 11, 1).getTime()
+        )
+      )
+
+      last.setDate(1)
+
+      while (current <= last) {
+        const month = current.getMonth()
+        const yearIndex = yearToIndex[Number(year)]
+
+        if (yearIndex !== undefined) {
+          counts[`${yearIndex}-${month}`] += 1
+        }
+
+        current.setMonth(current.getMonth() + 1)
       }
-      current.setMonth(current.getMonth() + 1)
     }
   }
 
@@ -94,27 +171,21 @@ function getMonthlyDataFromGeoJSON(features) {
 
   years.forEach((year, yearIndex) => {
     for (let monthIndex = 0; monthIndex < 12; monthIndex++) {
-      result.push([yearIndex, monthIndex, counts[`${yearIndex}-${monthIndex}`]])
+      result.push([
+        yearIndex,
+        monthIndex,
+        counts[`${yearIndex}-${monthIndex}`]
+      ])
     }
   })
-  return result
-}
 
-function getFilteredFeatures(features) {
-  return features.filter(feature => {
-    const props = feature.properties || {}
-    const matchesCountry =
-      !store.country || props.country_code === store.country
-    const matchesBranch =
-      !store.branch || props.sni_code === store.branch
-    return matchesCountry && matchesBranch
-  })
+  return result
 }
 
 function updateChart(geojson) {
   if (!myChart || !geojson?.features) return
 
-  const filteredFeatures = getFilteredFeatures(geojson.features)
+  const filteredFeatures = store.getFilteredFeatures(geojson)
   const data = getMonthlyDataFromGeoJSON(filteredFeatures)
   const title = []
   const singleAxis = []

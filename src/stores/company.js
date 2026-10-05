@@ -19,6 +19,81 @@ export const useStore = defineStore('company', () => {
         return String(code || '').trim().toUpperCase()
     }
 
+    const getCountryCode = (props = {}) => {
+        return cleanCode(
+            props.country_code ||
+            props.ADM0_A3 ||
+            props.country_a3 ||
+            props.ISO_A3 ||
+            props.iso_a3
+        )
+    }
+
+    const getFilteredFeatures = (sourceGeojson = geojson.value) => {
+        if (!sourceGeojson?.features) return []
+
+        const filtered = sourceGeojson.features.filter(feature => {
+            const props = feature.properties || {}
+
+            const matchesCountry =
+            !country.value ||
+            getCountryCode(props) === cleanCode(country.value)
+
+            const matchesBranch =
+            !branch.value ||
+            String(props.sni_code || '').toUpperCase() ===
+            String(branch.value).toUpperCase()
+
+            let matchesYear = true
+
+            if (year.value) {
+            if (!props.startdate) {
+                matchesYear = false
+            } else {
+                const start = new Date(props.startdate)
+                const end = props.enddate
+                ? new Date(props.enddate)
+                : new Date()
+
+                const yearStart = new Date(year.value, 0, 1)
+                const yearEnd = new Date(year.value, 11, 31, 23, 59, 59)
+
+                matchesYear =
+                start <= yearEnd &&
+                end >= yearStart
+            }
+            }
+
+            return matchesCountry && matchesBranch && matchesYear
+        })
+
+        // Count workers per country after filters
+        const countryCounts = new Map()
+
+        for (const feature of filtered) {
+            const code = getCountryCode(feature.properties || {})
+
+            if (!code) continue
+
+            countryCounts.set(
+            code,
+            (countryCounts.get(code) || 0) + 1
+            )
+        }
+
+        // Keep only countries with 10+ workers
+        return filtered.filter(feature => {
+            const code = getCountryCode(feature.properties || {})
+            return (countryCounts.get(code) || 0) >= 10
+        })
+        }
+
+    const getFilteredWorkers = () => {
+        const features = getFilteredFeatures()
+
+        return features.map(feature => feature.properties)
+    }
+
 
     const setCompany = (newCompany) => {
         company.value = newCompany
@@ -105,6 +180,9 @@ export const useStore = defineStore('company', () => {
         setCompany,
         resetBranch,
         branchFullName,
-        resetYear
+        resetYear,
+        getFilteredWorkers,
+        getFilteredFeatures,
+        
     }
 })
