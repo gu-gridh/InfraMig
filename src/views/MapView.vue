@@ -91,15 +91,10 @@ function getCircleRadius(count, maxCount) {
 
 function renderSizeLegend(maxCount, totalWorkers) {
   sizeLegend.value?.remove()
-
   const safeMax = Math.max(Number(maxCount) || 1, 1)
-
   const candidates = [10, 25, 50, 100, 200, 500, 1000, 2000, 3000]
-
   const nextIndex = candidates.findIndex(v => v > safeMax)
-
   let values
-
   if (nextIndex === -1) {
     // Larger than our biggest candidate
     values = candidates.slice(-4)
@@ -444,6 +439,37 @@ function renderCountries(countryLookup) {
     }
   }).addTo(map.value)
 }
+  // dont show countries with less than 10 workers
+  function filterCountriesByWorkerCount(features, minWorkers = 10) {
+  const countryCounts = new Map()
+
+  // Count workers per country
+  for (const feature of features) {
+    const props = feature.properties || {}
+
+    const key =
+      cleanCode(extractCountryCode(props)) ||
+      normalizeName(extractCountryName(props))
+
+    if (!key) continue
+
+    countryCounts.set(
+      key,
+      (countryCounts.get(key) || 0) + 1
+    )
+  }
+
+  // Keep only workers from countries with >= minWorkers
+  return features.filter(feature => {
+    const props = feature.properties || {}
+
+    const key =
+      cleanCode(extractCountryCode(props)) ||
+      normalizeName(extractCountryName(props))
+
+    return (countryCounts.get(key) || 0) >= minWorkers
+  })
+}
 
   function buildCompanyLayer(pointsData) {
     function featureMatchesBranch(feature, branch) {
@@ -539,8 +565,16 @@ function renderCountries(countryLookup) {
 
   const durationData = getCountryDurationAverages({
     ...pointsData,
-    features: uniqueCountryFeatures
-  })
+    features
+  }, store.year ? `avg${store.year}` : 'duration_avg')
+
+  const durationLookup = new Map()
+  for (const row of durationData) {
+    const key =
+      cleanCode(row.countryCode) ||
+      normalizeName(row.country)
+      durationLookup.set(key, row.avgDuration)
+  }
   
   const durations = durationData.map(d => d.avgDuration)
   const minDuration = Math.min(...durations)
@@ -578,36 +612,39 @@ function renderCountries(countryLookup) {
     normalizeName(extractCountryName(props))
   const count = filteredCountryCounts.get(key) || 1
 
-  const durationAvg = getAverageDays(feature.properties)
-    return L.circleMarker(latlng, {
-      radius: getCircleRadius(count, maxCount),
-      fillColor: getDurationColor(
-        durationAvg,
-        minDuration,
-        maxDuration
-      ),
-      color: '#ffffff',
-      weight: 1,
-      opacity: 1,
-      fillOpacity: 0.9
-    })
+  const durationAvg = durationLookup.get(key) ?? null
+
+  return L.circleMarker(latlng, {
+    radius: getCircleRadius(count, maxCount),
+    fillColor: getDurationColor(
+      durationAvg,
+      minDuration,
+      maxDuration
+    ),
+    color: '#ffffff',
+    weight: 1,
+    opacity: 1,
+    fillOpacity: 0.9
+  })
   },
       onEachFeature: (feature, layer) => {
         const props = feature.properties || {}
         const country = extractCountryName(props) || 'Unknown country'
-        const avgDays = getAverageDays(props)
 
         const key =
           cleanCode(extractCountryCode(props)) ||
           normalizeName(extractCountryName(props))
 
         const count = filteredCountryCounts.get(key) || 1
+        const avgDays = durationLookup.get(key) ?? null
 
-        layer.bindPopup(`
+         layer.bindPopup(`
           <strong>${country}</strong><br>
           Workers: ${count}<br>
           Average${store.year ? ` (${store.year})` : ''}: ${
-            avgDays != null ? avgDays + ' days' : 'N/A'
+            avgDays != null
+              ? Math.round(avgDays) + ' days'
+              : 'N/A'
           }
         `)
       }
@@ -693,15 +730,22 @@ function featureMatchesYear(feature, year) {
 }
 
 function filterMapFeatures(pointsData) {
+  const filteredFeatures = (pointsData.features ?? []).filter(feature => {
+    return (
+      (!store.country || featureMatchesCountry(feature, store.country)) &&
+      (!store.branch ||
+        String(feature.properties?.sni_code || '').toUpperCase() ===
+        String(store.branch).toUpperCase()) &&
+      featureMatchesYear(feature, store.year)
+    )
+  })
+
+  const featuresWithEnoughWorkers =
+    filterCountriesByWorkerCount(filteredFeatures, 10)
+
   return {
     ...pointsData,
-    features: (pointsData.features ?? []).filter(feature => {
-      return (
-        (!store.country || featureMatchesCountry(feature, store.country)) &&
-        (!store.branch || String(feature.properties?.sni_code || '').toUpperCase() === String(store.branch).toUpperCase()) &&
-        featureMatchesYear(feature, store.year)
-      )
-    })
+    features: featuresWithEnoughWorkers
   }
 }
 

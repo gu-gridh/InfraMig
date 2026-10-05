@@ -53,9 +53,50 @@ const chartData = computed(() => {
     avgField.value
   )
 
-  if (!store.year) return data
+  // Count currently filtered workers per country
+  const countryCounts = new Map()
 
-  return data.map(row => ({
+  for (const feature of filteredGeojson.value.features) {
+    const props = feature.properties || {}
+
+    const countryCode =
+      props.ADM0_A3 ||
+      props.country_a3 ||
+      props.country_code ||
+      props.ISO_A3 ||
+      null
+
+    const country =
+      props.country_en ||
+      props.country ||
+      props.name_en ||
+      props.ADMIN ||
+      props.name ||
+      'Unknown'
+
+    const key = countryCode
+      ? String(countryCode).trim().toUpperCase()
+      : country.toLowerCase()
+
+    countryCounts.set(
+      key,
+      (countryCounts.get(key) || 0) + 1
+    )
+  }
+
+  // Only show countries with at least 10 workers
+  const filteredData = data.filter(row => {
+    const key = row.countryCode
+      ? String(row.countryCode).trim().toUpperCase()
+      : row.country.toLowerCase()
+
+    return (countryCounts.get(key) || 0) >= 10
+  })
+
+  // Cap yearly averages at 365 days
+  if (!store.year) return filteredData
+
+  return filteredData.map(row => ({
     ...row,
     avgDuration: Math.min(row.avgDuration, 365)
   }))
@@ -76,7 +117,10 @@ const filteredGeojson = computed(() => {
         !store.year ||
         (
           new Date(worker.startdate).getFullYear() <= store.year &&
-          new Date(worker.enddate).getFullYear() >= store.year
+          (
+            !worker.enddate ||
+            new Date(worker.enddate).getFullYear() >= store.year
+          )
         )
 
       return matchesBranch && matchesYear
