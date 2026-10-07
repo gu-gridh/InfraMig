@@ -3,13 +3,13 @@
     <div v-if="!store.year">
     <h3>
       Duration of stay
-      <span v-if="store.year">({{ store.year }})</span><span v-else>2023-2026</span>
+      <span v-if="store.year">({{ store.year }})</span><span v-else>2023-2025</span>
       <span v-if="store.branch" class="brackets"> ({{ store.branchFullName }})</span><span v-else class="brackets"> (all industries)</span>
     </h3>
 
     <div ref="histogramEl" class="chart"></div>
     </div>
-    <h3 class="chart-title">Activity of work <span v-if="store.year">({{ store.year }})</span><span v-else>2023-2026</span></h3>
+    <h3 class="chart-title">Activity of work 2023-2025</h3>
     <div ref="timelineEl" class="chart"></div>
   </div>
 </template>
@@ -51,16 +51,111 @@ function forceResizeChart() {
 }
 
 const workers = computed(() => {
-  return store.getFilteredWorkers().filter(worker => worker?.startdate)
+  const features = store.geojson?.features ?? []
+
+  const filtered = features
+    .map(feature => feature.properties || {})
+    .filter(worker => worker.startdate)
+    .filter(worker => {
+      const matchesCountry =
+        !store.country ||
+        String(worker.country_code || '').trim().toUpperCase() ===
+        String(store.country || '').trim().toUpperCase()
+
+      const matchesBranch =
+        !store.branch ||
+        String(worker.sni_code || '').toUpperCase() ===
+        String(store.branch).toUpperCase()
+
+      return matchesCountry && matchesBranch
+    })
+
+  // Count workers per country
+  const countryCounts = new Map()
+
+  for (const worker of filtered) {
+    const country = String(
+      worker.country_code || ''
+    ).trim().toUpperCase()
+
+    if (!country) continue
+
+    countryCounts.set(
+      country,
+      (countryCounts.get(country) || 0) + 1
+    )
+  }
+
+  // Keep only countries with at least 10 workers
+  return filtered.filter(worker => {
+    const country = String(
+      worker.country_code || ''
+    ).trim().toUpperCase()
+
+    return (countryCounts.get(country) || 0) >= 10
+  })
+})
+
+const activityWorkers = computed(() => {
+  const features = store.geojson?.features ?? []
+
+  const filtered = features
+    .map(feature => feature.properties || {})
+    .filter(worker => worker.startdate)
+    .filter(worker => {
+      const matchesCountry =
+        !store.country ||
+        String(worker.country_code || '').trim().toUpperCase() ===
+        String(store.country || '').trim().toUpperCase()
+
+      const matchesBranch =
+        !store.branch ||
+        String(worker.sni_code || '').toUpperCase() ===
+        String(store.branch).toUpperCase()
+
+      return matchesCountry && matchesBranch
+    })
+
+  const countryCounts = new Map()
+
+  for (const worker of filtered) {
+    const country = String(
+      worker.country_code || ''
+    ).trim().toUpperCase()
+
+    if (!country) continue
+
+    countryCounts.set(
+      country,
+      (countryCounts.get(country) || 0) + 1
+    )
+  }
+
+  return filtered.filter(worker => {
+    const country = String(
+      worker.country_code || ''
+    ).trim().toUpperCase()
+
+    return (countryCounts.get(country) || 0) >= 10
+  })
 })
 
 const histogramCounts = computed(() => {
-  const durations = workers.value.map(worker => {
-    const start = new Date(worker.startdate)
-    const end = new Date(worker.enddate)
+  const durations = workers.value
+    .map(worker => {
+      const start = new Date(worker.startdate)
 
-    return (end - start) / (1000 * 60 * 60 * 24 * 30.44)
-  })
+      const end = worker.enddate
+        ? new Date(worker.enddate)
+        : new Date()
+
+      if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+        return null
+      }
+
+      return (end - start) / (1000 * 60 * 60 * 24 * 30.44)
+    })
+    .filter(d => d != null)
 
   return bins.map(bin =>
     durations.filter(d => d >= bin.min && d < bin.max).length
@@ -71,17 +166,19 @@ const timelineData = computed(() => {
   const labels = []
   const values = []
 
-  const startYear = store.year ?? 2023
-  const endYear = store.year ?? 2026
+  const startYear = 2023
+  const endYear = 2025
 
   for (let year = startYear; year <= endYear; year++) {
     for (let month = 0; month < 12; month++) {
       const current = new Date(year, month, 1)
       const label = `${year}-${String(month + 1).padStart(2, '0')}`
 
-      const activeCount = workers.value.filter(worker => {
+      const activeCount = activityWorkers.value.filter(worker => {
         const start = new Date(worker.startdate)
-        const end = new Date(worker.enddate)
+        const end = worker.enddate
+          ? new Date(worker.enddate)
+          : new Date()
 
         return start <= current && end >= current
       }).length
