@@ -1,6 +1,6 @@
 <template>
   <div class="statistics">
-    <h3>Average stay by country <span v-if="store.year">({{ store.year }})</span><span v-else>2023-2026</span><span v-if="store.branch" class="brackets"> ({{ store.branchFullName }})</span><span v-else class="brackets"> (all industries)</span></h3>
+    <h3>Average stay by country <span v-if="store.year">({{ store.year }})</span><span v-else>2023-2025</span><span v-if="store.branch" class="brackets"> ({{ store.branchFullName }})</span><span v-else class="brackets"> (all industries)</span></h3>
     <div ref="chartEl" class="chart"></div>
   </div>
 </template>
@@ -105,25 +105,50 @@ const chartData = computed(() => {
 const filteredGeojson = computed(() => {
   if (!store.geojson) return null
 
+  const periodStart = new Date(2023, 0, 1)
+  const periodEnd = new Date(2025, 11, 31, 23, 59, 59)
+
   return {
     ...store.geojson,
     features: store.geojson.features.filter(feature => {
-      const worker = feature.properties
+      const worker = feature.properties || {}
 
       const matchesBranch =
-        !store.branch || worker.sni_code === store.branch
+        !store.branch ||
+        String(worker.sni_code || '').toUpperCase() ===
+        String(store.branch).toUpperCase()
 
-      const matchesYear =
-        !store.year ||
-        (
-          new Date(worker.startdate).getFullYear() <= store.year &&
-          (
-            !worker.enddate ||
-            new Date(worker.enddate).getFullYear() >= store.year
-          )
+      if (!worker.startdate) return false
+
+      const start = new Date(worker.startdate)
+      const end = worker.enddate
+        ? new Date(worker.enddate)
+        : new Date()
+
+      if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+        return false
+      }
+
+      // When a specific year is selected:
+      // only workers active during that year
+      if (store.year) {
+        const yearStart = new Date(store.year, 0, 1)
+        const yearEnd = new Date(store.year, 11, 31, 23, 59, 59)
+
+        return (
+          matchesBranch &&
+          start <= yearEnd &&
+          end >= yearStart
         )
+      }
 
-      return matchesBranch && matchesYear
+      // No year selected:
+      // only workers who were active at some point during 2023–2025
+      const overlaps2023to2025 =
+        start <= periodEnd &&
+        end >= periodStart
+
+      return matchesBranch && overlaps2023to2025
     })
   }
 })
