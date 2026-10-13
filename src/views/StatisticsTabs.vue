@@ -4,7 +4,7 @@
             <v-tabs v-model="tab" color="primary">
                 <v-tab value="one">Duration</v-tab>
                 <v-tab value="two">Workforce</v-tab>
-                <v-tab value="three" v-if="!store.country">By country</v-tab>
+                <v-tab value="three" v-if="!store.country">Average stay</v-tab>
             </v-tabs>
 
             <v-divider></v-divider>

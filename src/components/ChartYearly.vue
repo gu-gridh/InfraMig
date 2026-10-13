@@ -2,6 +2,8 @@
   <div class="statistics">
     <h3>Total workers per year <span v-if="store.branch" class="brackets">({{ store.branchFullName }})</span><span v-else class="brackets">(All industries)</span></h3>
     <div ref="chartEl" class="chart"></div>
+    <h3 class="chart-title">Workers per year and country</h3>
+    <div ref="countryYearEl" class="chart country-year-chart"></div>
   </div>
 </template>
 
@@ -12,6 +14,8 @@ import { useStore } from '@/stores/company'
 
 const store = useStore()
 const chartEl = ref(null)
+const countryYearEl = ref(null)
+let countryYearChart = null
 let myChart = null
 
 const months = [
@@ -33,7 +37,8 @@ const props = defineProps({
 })
 
 function resizeChart() {
-  if (myChart) myChart.resize()
+  myChart?.resize()
+  countryYearChart?.resize()
 }
 
 function forceResizeChart() {
@@ -182,6 +187,122 @@ function getMonthlyDataFromGeoJSON(features) {
   return result
 }
 
+function getWorkersPerCountryYear(features) {
+  const results = []
+  const yearsToShow = [2023, 2024, 2025]
+
+  for (const year of yearsToShow) {
+    const yearStart = new Date(year, 0, 1)
+    const yearEnd = new Date(year, 11, 31, 23, 59, 59)
+
+    const yearFeatures = features.filter(feature => {
+      const props = feature.properties || {}
+
+      const start = parseDate(props.startdate)
+      const end = parseDate(props.enddate) || new Date()
+
+      if (!start || !end || start > end) return false
+
+      return start <= yearEnd && end >= yearStart
+    })
+
+    // Count workers per country
+    const countryCounts = new Map()
+
+    for (const feature of yearFeatures) {
+      const props = feature.properties || {}
+
+      const country =
+        String(
+          props.country_code ||
+          props.ADM0_A3 ||
+          props.country_a3 ||
+          props.ISO_A3 ||
+          ''
+        )
+          .trim()
+          .toUpperCase()
+
+      if (!country) continue
+
+      countryCounts.set(
+        country,
+        (countryCounts.get(country) || 0) + 1
+      )
+    }
+
+    // Only include countries with at least 10 workers
+    for (const [country, workers] of countryCounts) {
+      if (workers >= 10) {
+        results.push({
+          year: String(year),
+          country,
+          workers
+        })
+      }
+    }
+  }
+
+  return results
+}
+
+function buildCountryYearOption(features) {
+  const data = getWorkersPerCountryYear(features)
+
+  const years = ['2023', '2024', '2025']
+
+  const countries = [
+    ...new Set(data.map(d => d.country))
+  ]
+
+  return {
+    tooltip: {
+      trigger: 'axis',
+      axisPointer: {
+        type: 'shadow'
+      }
+    },
+
+    legend: {
+      type: 'scroll',
+      bottom: 0
+    },
+
+    grid: {
+      left: '8%',
+      right: '4%',
+      top: '10%',
+      bottom: '22%'
+    },
+
+    xAxis: {
+      type: 'category',
+      data: years
+    },
+
+    yAxis: {
+      type: 'value',
+      name: 'Workers'
+    },
+
+    series: countries.map(country => ({
+      name: country,
+      type: 'bar',
+      stack: 'workers',
+
+      data: years.map(year => {
+        const row = data.find(
+          d =>
+            d.year === year &&
+            d.country === country
+        )
+
+        return row ? row.workers : 0
+      })
+    }))
+  }
+}
+
 function updateChart(geojson) {
   if (!myChart || !geojson?.features) return
 
@@ -254,13 +375,20 @@ function updateChart(geojson) {
     series
   })
 
+  countryYearChart?.setOption(
+    buildCountryYearOption(filteredFeatures),
+    true
+  )
+
   resizeChart()
 }
 
 onMounted(async () => {
   await nextTick()
   myChart = echarts.init(chartEl.value)
-
+  if (countryYearEl.value) {
+    countryYearChart = echarts.init(countryYearEl.value)
+  }
   if (!store.geojson && !store.loadingGeojson) {
     await store.loadGeojson()
   }
@@ -282,10 +410,11 @@ watch(
 
 onUnmounted(() => {
   window.removeEventListener('resize', resizeChart)
-  if (myChart) {
-    myChart.dispose()
-    myChart = null
-  }
+  countryYearChart?.dispose()
+  myChart?.dispose()
+
+  countryYearChart = null
+  myChart = null
 })
 
 </script>

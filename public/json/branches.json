@@ -1,22 +1,26 @@
 [
   {
-    "sni_letter":"C",
-    "english_label":"Manufacturing"
+    "sni_letter": "C",
+    "english_label": "Manufacturing"
   },
   {
-    "sni_letter":"F",
-    "english_label":"Construction"
+    "sni_letter": "F",
+    "english_label": "Construction"
   },
   {
-    "sni_letter":"H",
-    "english_label":"Transportation And Storage"
+    "sni_letter": "H",
+    "english_label": "Transportation And Storage"
   },
   {
-    "sni_letter":"N",
-    "english_label":"Professional, Scientific And Technical Activities"
+    "sni_letter": "N",
+    "english_label": "Professional, Scientific And Technical Activities"
   },
   {
-    "sni_letter":"O",
-    "english_label":"Administrative And Support Service Activities"
+    "sni_letter": "O",
+    "english_label": "Administrative And Support Service Activities"
+  },
+  {
+    "sni_letter": "OTHER",
+    "english_label": "Other / Unknown"
   }
 ]
