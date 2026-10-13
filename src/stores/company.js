@@ -40,9 +40,13 @@ export const useStore = defineStore('company', () => {
             getCountryCode(props) === cleanCode(country.value)
 
             const matchesBranch =
-            !branch.value ||
-            String(props.sni_code || '').toUpperCase() ===
-            String(branch.value).toUpperCase()
+                !branch.value ||
+                (
+                    branch.value === 'OTHER'
+                    ? props.sni_code == null
+                    : String(props.sni_code || '').toUpperCase() ===
+                        String(branch.value).toUpperCase()
+                )
 
             let matchesYear = true
 
@@ -67,32 +71,27 @@ export const useStore = defineStore('company', () => {
             return matchesCountry && matchesBranch && matchesYear
         })
 
-        // Count workers per country after filters
-        const countryCounts = new Map()
-
-        for (const feature of filtered) {
-            const code = getCountryCode(feature.properties || {})
-
-            if (!code) continue
-
-            countryCounts.set(
-            code,
-            (countryCounts.get(code) || 0) + 1
-            )
-        }
-
-        // Keep only countries with 10+ workers
-        return filtered.filter(feature => {
-            const code = getCountryCode(feature.properties || {})
-            return (countryCounts.get(code) || 0) >= 10
-        })
-        }
+        return filtered
+    }
 
     const getFilteredWorkers = () => {
         const features = getFilteredFeatures()
 
-        return features.map(feature => feature.properties)
-    }
+        const unique = new Map()
+
+        for (const feature of features) {
+            const props = feature.properties || {}
+            const workerId = String(props.worker_id ?? '').trim()
+
+            if (!workerId) continue
+
+            if (!unique.has(workerId)) {
+            unique.set(workerId, props)
+            }
+        }
+
+        return [...unique.values()]
+        }
 
 
     const setCompany = (newCompany) => {
@@ -105,7 +104,7 @@ export const useStore = defineStore('company', () => {
         let url = ''
 
         if (selectedCompany === 'stegra') {
-            url = '/geojson/stegra/stegraOver10.geojson'
+            url = '/geojson/stegra/stegra_2023_2025.geojson'
         } else if (selectedCompany === 'ssab') {
             url = '/geojson/ssab/ssabOver10.geojson'
         } else {
@@ -137,21 +136,33 @@ export const useStore = defineStore('company', () => {
         year.value = null
     }
 
-    //get country data from geojson based on country code
-    watch([country, geojson], ([newCountry, newGeojson]) => {
-        if (!newCountry || !newGeojson) {
+    watch(
+        [country, branch, year, geojson],
+        () => {
+            if (!country.value || !geojson.value) {
             workers.value = null
             return
-        }
+            }
 
-        const features = newGeojson.features.filter(
-            f => cleanCode(f.properties.country_code) === cleanCode(newCountry)
-        )
+            const unique = new Map()
 
-        workers.value = features.length
-            ? features.map(f => f.properties)
+            for (const feature of getFilteredFeatures()) {
+            const props = feature.properties || {}
+            const workerId = String(props.worker_id ?? '').trim()
+
+            if (!workerId) continue
+
+            if (!unique.has(workerId)) {
+                unique.set(workerId, props)
+            }
+            }
+
+            workers.value = unique.size
+            ? [...unique.values()]
             : null
-    })
+        }
+            , { immediate: true }
+        )
 
     watch(company, async (newCompany) => {
         resetBranch()

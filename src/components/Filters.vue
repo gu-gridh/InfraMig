@@ -193,7 +193,7 @@ watch(companyState, async () => {
   padding: 10px;
   border-radius: 5px;
   box-shadow: 0 0 15px rgba(0,0,0,0.2);
-  width: 400px;
+  width: 440px;
   max-width: 100%;
   border: 2px solid #14B8A6;
   max-height: 90vh;
@@ -247,6 +247,7 @@ watch(companyState, async () => {
 
 .statistics {
   margin-top: 10px;
+  text-align: center;
 }
 
 .v-select .v-field__input {

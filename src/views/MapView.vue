@@ -12,7 +12,7 @@
         color="primary"
       >
         <v-btn value="stegra">Stegra</v-btn>
-        <v-btn value="ssab">SSAB</v-btn>
+        <!-- <v-btn value="ssab">SSAB</v-btn> -->
       </v-btn-toggle>
     </div>
     <div class="map-panel">
@@ -282,7 +282,7 @@ function renderDurationLegend(min, max) {
 
     div.innerHTML = `
       <div class="legend-title">
-        Average stay (days) ${store.year ?? '2023–2026'}
+        Average stay (days) ${store.year ?? '2023–2025'}
       </div>
 
       ${ranges.map(([from, to]) => {
@@ -472,30 +472,33 @@ function renderCountries(countryLookup) {
 }
 
   function buildCompanyLayer(pointsData) {
-    function featureMatchesBranch(feature, branch) {
-      if (!branch) return true
-
-      const props = feature.properties || {}
-
-      return String(props.sni_code || '').toUpperCase()
-        === String(branch).toUpperCase()
-    }
 
     let features = pointsData.features ?? []
-
-    const filteredCountryCounts = new Map()
+    //unique workers
+    const countryWorkerIds = new Map()
     for (const feature of features) {
       const props = feature.properties || {}
+
       const key =
         cleanCode(extractCountryCode(props)) ||
         normalizeName(extractCountryName(props))
 
-      if (!key) continue
-      filteredCountryCounts.set(
-        key,
-        (filteredCountryCounts.get(key) || 0) + 1
-      )
-}
+      const workerId = String(props.worker_id ?? '').trim()
+
+      if (!key || !workerId) continue
+
+      if (!countryWorkerIds.has(key)) {
+        countryWorkerIds.set(key, new Set())
+      }
+
+      countryWorkerIds.get(key).add(workerId)
+    }
+
+     const filteredCountryCounts = new Map(
+    [...countryWorkerIds.entries()].map(
+      ([key, workerIds]) => [key, workerIds.size]
+    )
+  )
 
   const seenCountries = new Set()
 
@@ -520,7 +523,13 @@ function renderCountries(countryLookup) {
   })
 
     const maxCount = Math.max(...counts, 1)
-    const totalWorkers = features.length
+    const totalWorkers = new Set(
+      features
+        .map(feature =>
+          String(feature.properties?.worker_id ?? '').trim()
+        )
+        .filter(Boolean)
+    ).size
 
       if (!store.country) {
         renderSizeLegend(maxCount, totalWorkers)
