@@ -282,7 +282,7 @@ function renderDurationLegend(min, max) {
 
     div.innerHTML = `
       <div class="legend-title">
-        Average stay (days) ${store.year ?? '2023–2026'}
+        Average stay (days) ${store.year ?? '2023–2025'}
       </div>
 
       ${ranges.map(([from, to]) => {
