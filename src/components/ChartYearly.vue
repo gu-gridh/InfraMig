@@ -1,436 +1,683 @@
 <template>
   <div class="statistics">
-    <h3>Total workers per year <span v-if="store.branch" class="brackets">({{ store.branchFullName }})</span><span v-else class="brackets">(All industries)</span></h3>
-    <div ref="chartEl" class="chart"></div>
-    <h3 class="chart-title">Workers per year and country</h3>
-    <div ref="countryYearEl" class="chart country-year-chart"></div>
+
+    <!-- WORKFORCE OVER TIME -->
+    <h3>
+      Workforce over time
+      <span v-if="store.year">({{ store.year }})</span>
+      <span v-else>(2023–2025)</span>
+
+      <span v-if="store.branch" class="brackets">
+        ({{ store.branchFullName }})
+      </span>
+      <span v-else class="brackets">
+        (all industries)
+      </span>
+    </h3>
+
+    <div
+      ref="timelineEl"
+      class="chart"
+    ></div>
+
+
+    <!-- WORKERS BY COUNTRY -->
+    <h3 class="chart-title">
+      Workers by company country
+      <span v-if="store.year">
+        ({{ store.year }})
+      </span>
+
+      <span v-if="store.branch" class="brackets">
+        ({{ store.branchFullName }})
+      </span>
+      <span v-else class="brackets">
+        (all industries)
+      </span>
+    </h3>
+
+    <div
+      ref="countryEl"
+      class="chart country-chart"
+    ></div>
+
   </div>
 </template>
 
+
 <script setup>
-import { ref, onMounted, onUnmounted, nextTick, watch } from 'vue'
+import {
+  ref,
+  computed,
+  onMounted,
+  onUnmounted,
+  nextTick,
+  watch
+} from 'vue'
+
 import * as echarts from 'echarts'
 import { useStore } from '@/stores/company'
 
 const store = useStore()
-const chartEl = ref(null)
-const countryYearEl = ref(null)
-let countryYearChart = null
-let myChart = null
 
-const months = [
-  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
-]
+const timelineEl = ref(null)
+const countryEl = ref(null)
 
-const years = ['2023', '2024', '2025', ] //2026 removed
+let timelineChart = null
+let countryChart = null
 
-const yearColors = {
-  2023: '#5470c6',
-  2024: '#91cc75',
-  2025: '#facc15', 
-  2026: '#ee6666'
-}
 
 const props = defineProps({
   active: Boolean
 })
 
-function resizeChart() {
-  myChart?.resize()
-  countryYearChart?.resize()
+
+/* ---------------------------------------
+   DATE
+--------------------------------------- */
+
+function parseDate(value) {
+  if (!value) return null
+
+  const date = new Date(value)
+
+  return Number.isNaN(date.getTime())
+    ? null
+    : date
 }
 
-function forceResizeChart() {
-  requestAnimationFrame(() => {
-    requestAnimationFrame(() => {
-      updateChart(store.geojson)
-      resizeChart()
-    })
+
+/* ---------------------------------------
+   BASE FEATURES
+
+   Apply country + branch here.
+
+   Year is handled separately because
+   the timeline needs month-level filtering.
+--------------------------------------- */
+
+const baseFeatures = computed(() => {
+  const features = store.geojson?.features ?? []
+
+  return features.filter(feature => {
+    const worker = feature.properties || {}
+
+    const matchesCountry =
+      !store.country ||
+      String(worker.country_code || '')
+        .trim()
+        .toUpperCase() ===
+      String(store.country || '')
+        .trim()
+        .toUpperCase()
+
+    const matchesBranch =
+      !store.branch ||
+      (
+        store.branch === 'OTHER'
+          ? worker.sni_code == null
+          : String(worker.sni_code || '')
+              .toUpperCase() ===
+            String(store.branch)
+              .toUpperCase()
+      )
+
+    return matchesCountry && matchesBranch
   })
-}
-
-watch(
-  () => props.active,
-  active => {
-    if (active) {
-      forceResizeChart()
-    }
-  }
-)
-
-function parseDate(dateStr) {
-  if (!dateStr) return null
-  const d = new Date(dateStr)
-  return Number.isNaN(d.getTime()) ? null : d
-}
+})
 
 
+/* ---------------------------------------
+   WORKFORCE OVER TIME
+--------------------------------------- */
 
-function getMonthlyDataFromGeoJSON(features) {
-  const yearToIndex = Object.fromEntries(
-    years.map((y, i) => [Number(y), i])
-  )
+const timelineData = computed(() => {
 
-  const counts = {}
+  const labels = []
+  const values = []
 
-  years.forEach((year, yearIndex) => {
-    for (let monthIndex = 0; monthIndex < 12; monthIndex++) {
-      counts[`${yearIndex}-${monthIndex}`] = 0
-    }
-  })
+  const selectedYear = store.year
+    ? Number(store.year)
+    : null
 
-  for (const year of years) {
-    // Workers active during this year
-    const yearFeatures = features.filter(feature => {
-      const props = feature.properties || {}
-      const start = parseDate(props.startdate)
-      const end = parseDate(props.enddate) || new Date()
+  const startYear = selectedYear ?? 2023
+  const endYear = selectedYear ?? 2025
 
-      if (!start || !end || start > end) return false
 
-      const yearStart = new Date(Number(year), 0, 1)
-      const yearEnd = new Date(Number(year), 11, 31, 23, 59, 59)
+  for (
+    let year = startYear;
+    year <= endYear;
+    year++
+  ) {
 
-      return start <= yearEnd && end >= yearStart
-    })
+    for (let month = 0; month < 12; month++) {
 
-    // Count workers per country for this year
-    const countryCounts = new Map()
+      const monthStart = new Date(year, month, 1)
+      const monthEnd = new Date(year, month + 1, 0, 23, 59, 59)
+      const workerIds = new Set()
 
-    for (const feature of yearFeatures) {
-      const props = feature.properties || {}
 
-      const country =
-        String(
-          props.country_code ||
-          props.ADM0_A3 ||
-          props.country_a3 ||
-          props.ISO_A3 ||
-          ''
-        )
-          .trim()
-          .toUpperCase()
+      for (const feature of baseFeatures.value) {
 
-      if (!country) continue
+        const worker =
+          feature.properties || {}
 
-      countryCounts.set(
-        country,
-        (countryCounts.get(country) || 0) + 1
-      )
-    }
+        const start =
+          parseDate(worker.startdate)
 
-    // Keep only countries with >= 10 workers in this year
-    const qualifyingFeatures = yearFeatures.filter(feature => {
-      const props = feature.properties || {}
+        const end =
+          parseDate(worker.enddate) ||
+          new Date(2025, 11, 31)
 
-      const country =
-        String(
-          props.country_code ||
-          props.ADM0_A3 ||
-          props.country_a3 ||
-          props.ISO_A3 ||
-          ''
-        )
-          .trim()
-          .toUpperCase()
+        if (!start || !end) continue
 
-      return (countryCounts.get(country) || 0) >= 10
-    })
 
-    // Count those workers by month
-    for (const feature of qualifyingFeatures) {
-      const props = feature.properties || {}
-      const start = parseDate(props.startdate)
-      const end = parseDate(props.enddate) || new Date()
+        /*
+         Worker must be active on
+         the first day of this month.
+        */
 
-      const current = new Date(
-        Math.max(start.getTime(), new Date(Number(year), 0, 1).getTime())
-      )
+        if (
+          start <= monthEnd &&
+          end >= monthStart
+        ) {
 
-      current.setDate(1)
+          const workerId =
+            String(
+              worker.worker_id ?? ''
+            ).trim()
 
-      const last = new Date(
-        Math.min(
-          end.getTime(),
-          new Date(Number(year), 11, 1).getTime()
-        )
-      )
-
-      last.setDate(1)
-
-      while (current <= last) {
-        const month = current.getMonth()
-        const yearIndex = yearToIndex[Number(year)]
-
-        if (yearIndex !== undefined) {
-          counts[`${yearIndex}-${month}`] += 1
+          if (workerId) {
+            workerIds.add(workerId)
+          }
         }
-
-        current.setMonth(current.getMonth() + 1)
       }
-    }
-  }
 
-  const result = []
 
-  years.forEach((year, yearIndex) => {
-    for (let monthIndex = 0; monthIndex < 12; monthIndex++) {
-      result.push([
-        yearIndex,
-        monthIndex,
-        counts[`${yearIndex}-${monthIndex}`]
-      ])
-    }
-  })
-
-  return result
-}
-
-function getWorkersPerCountryYear(features) {
-  const results = []
-  const yearsToShow = [2023, 2024, 2025]
-
-  for (const year of yearsToShow) {
-    const yearStart = new Date(year, 0, 1)
-    const yearEnd = new Date(year, 11, 31, 23, 59, 59)
-
-    const yearFeatures = features.filter(feature => {
-      const props = feature.properties || {}
-
-      const start = parseDate(props.startdate)
-      const end = parseDate(props.enddate) || new Date()
-
-      if (!start || !end || start > end) return false
-
-      return start <= yearEnd && end >= yearStart
-    })
-
-    // Count workers per country
-    const countryCounts = new Map()
-
-    for (const feature of yearFeatures) {
-      const props = feature.properties || {}
-
-      const country =
-        String(
-          props.country_code ||
-          props.ADM0_A3 ||
-          props.country_a3 ||
-          props.ISO_A3 ||
-          ''
-        )
-          .trim()
-          .toUpperCase()
-
-      if (!country) continue
-
-      countryCounts.set(
-        country,
-        (countryCounts.get(country) || 0) + 1
+      labels.push(
+        `${year}-${String(month + 1)
+          .padStart(2, '0')}`
       )
-    }
 
-    // Only include countries with at least 10 workers
-    for (const [country, workers] of countryCounts) {
-      if (workers >= 10) {
-        results.push({
-          year: String(year),
-          country,
-          workers
-        })
-      }
+      values.push(workerIds.size)
     }
   }
 
-  return results
-}
-
-function buildCountryYearOption(features) {
-  const data = getWorkersPerCountryYear(features)
-
-  const years = ['2023', '2024', '2025']
-
-  const countries = [
-    ...new Set(data.map(d => d.country))
-  ]
 
   return {
+    labels,
+    values
+  }
+})
+
+
+/* ---------------------------------------
+   COUNTRY DATA
+--------------------------------------- */
+
+const countryData = computed(() => {
+
+  const selectedYear = store.year
+    ? Number(store.year)
+    : null
+
+  const yearStart = selectedYear
+    ? new Date(selectedYear, 0, 1)
+    : new Date(2023, 0, 1)
+
+  const yearEnd = selectedYear
+    ? new Date(
+        selectedYear,
+        11,
+        31,
+        23,
+        59,
+        59
+      )
+    : new Date(
+        2025,
+        11,
+        31,
+        23,
+        59,
+        59
+      )
+
+
+  /*
+   Map:
+
+   country →
+   Set(worker_id)
+  */
+
+  const countries = new Map()
+
+
+  for (const feature of baseFeatures.value) {
+
+    const worker =
+      feature.properties || {}
+
+    const start =
+      parseDate(worker.startdate)
+
+    const end =
+      parseDate(worker.enddate) ||
+      yearEnd
+
+    if (!start || !end) continue
+
+
+    /*
+     Worker must overlap selected period.
+    */
+
+    if (
+      start > yearEnd ||
+      end < yearStart
+    ) {
+      continue
+    }
+
+
+    const country =
+      worker.country_en ||
+      worker.country_code ||
+      'Unknown'
+
+
+    const workerId =
+      String(
+        worker.worker_id ?? ''
+      ).trim()
+
+    if (!workerId) continue
+
+
+    if (!countries.has(country)) {
+      countries.set(
+        country,
+        new Set()
+      )
+    }
+
+
+    countries
+      .get(country)
+      .add(workerId)
+  }
+
+
+  return [...countries.entries()]
+    .map(([country, workerIds]) => ({
+      country,
+      workers: workerIds.size
+    }))
+    .sort(
+      (a, b) =>
+        b.workers - a.workers
+    )
+})
+
+
+/* ---------------------------------------
+   TIMELINE OPTION
+--------------------------------------- */
+
+function buildTimelineOption() {
+
+  return {
+
     tooltip: {
       trigger: 'axis',
-      axisPointer: {
-        type: 'shadow'
+
+      formatter(params) {
+
+        const item = params?.[0]
+
+        if (!item) return ''
+
+        return `
+          <strong>${item.axisValue}</strong><br>
+          Workers: ${item.value.toLocaleString()}
+        `
       }
     },
 
-    legend: {
-      type: 'scroll',
-      bottom: 0
-    },
 
     grid: {
-      left: '8%',
-      right: '4%',
-      top: '10%',
-      bottom: '22%'
+      left: 55,
+      right: 20,
+      top: 30,
+      bottom: 60
     },
+
 
     xAxis: {
       type: 'category',
-      data: years
+
+      data:
+        timelineData.value.labels,
+
+      boundaryGap: false,
+
+      axisLabel: {
+        rotate: 45,
+
+        interval:
+          store.year
+            ? 0
+            : 2
+      }
     },
+
 
     yAxis: {
       type: 'value',
-      name: 'Workers'
+      name: 'Workers',
+      minInterval: 1
     },
 
-    series: countries.map(country => ({
-      name: country,
-      type: 'bar',
-      stack: 'workers',
 
-      data: years.map(year => {
-        const row = data.find(
-          d =>
-            d.year === year &&
-            d.country === country
-        )
+    series: [
+      {
+        type: 'line',
 
-        return row ? row.workers : 0
-      })
-    }))
+        data:
+          timelineData.value.values,
+
+        smooth: true,
+
+        symbol: 'circle',
+
+        symbolSize:
+          store.year
+            ? 7
+            : 5,
+
+        lineStyle: {
+          width: 3,
+          color: '#14B8A6'
+        },
+
+        itemStyle: {
+          color: '#14B8A6'
+        },
+
+        areaStyle: {
+          opacity: 0.12,
+          color: '#14B8A6'
+        }
+      }
+    ]
   }
 }
 
-function updateChart(geojson) {
-  if (!myChart || !geojson?.features) return
 
-  const filteredFeatures = store.getFilteredFeatures(geojson)
-  const data = getMonthlyDataFromGeoJSON(filteredFeatures)
-  const title = []
-  const singleAxis = []
-  const series = []
+/* ---------------------------------------
+   COUNTRY OPTION
+--------------------------------------- */
 
-  const maxValue = Math.max(...data.map(d => d[2]), 1)
-  years.forEach((year, idx) => {
-    title.push({
-      textBaseline: 'middle',
-      top: ((idx + 0.5) * 100) / years.length + '%',
-      text: year
-    })
+function buildCountryOption() {
 
-    singleAxis.push({
-      left: 15,
-      right: 20,
-      type: 'category',
-      boundaryGap: false,
-      data: months,
-      top: (idx * 100) / years.length + 5 + '%',
-      height: 100 / years.length - 10 + '%',
-      axisLabel: {
-        interval: 0
-      }
-    })
+  const data =
+    countryData.value
 
-    series.push({
-      singleAxisIndex: idx,
-      coordinateSystem: 'singleAxis',
-      type: 'scatter',
-      data: [],
-      itemStyle: {
-        color: yearColors[year]
-      },
-      symbolSize(dataItem) {
-        const value = dataItem[1]
-        if (value === 0) return 0
 
-        const minSize = 5
-        const maxSize = 30
+  return {
 
-        return minSize + (Math.sqrt(value) / Math.sqrt(maxValue)) * (maxSize - minSize)
-      }
-    })
-
-  })
-
-  data.forEach((dataItem) => {
-    series[dataItem[0]].data.push([dataItem[1], dataItem[2]])
-  })
-
-  myChart.clear()
-
-  myChart.setOption({
     tooltip: {
-      position: 'top',
+      trigger: 'axis',
+
+      axisPointer: {
+        type: 'shadow'
+      },
+
       formatter(params) {
-        const year = years[params.seriesIndex]
-        const month = months[params.data[0]]
-        const value = params.data[1]
-        return `${year}<br>${month}: ${value}`
+
+        const item = params?.[0]
+
+        if (!item) return ''
+
+        return `
+          <strong>${item.name}</strong><br>
+          Workers: ${item.value.toLocaleString()}
+        `
       }
     },
-    title,
-    singleAxis,
-    series
-  })
 
-  countryYearChart?.setOption(
-    buildCountryYearOption(filteredFeatures),
+
+    grid: {
+      left: 100,
+      right: 55,
+      top: 15,
+      bottom: 30
+    },
+
+
+    xAxis: {
+      type: 'value',
+      name: 'Workers',
+      minInterval: 1
+    },
+
+
+    yAxis: {
+      type: 'category',
+
+      inverse: true,
+
+      data:
+        data.map(
+          row => row.country
+        ),
+
+      axisLabel: {
+        width: 90,
+        overflow: 'truncate'
+      }
+    },
+
+
+    series: [
+      {
+        type: 'bar',
+
+        data:
+          data.map(
+            row => row.workers
+          ),
+
+        barMaxWidth: 24,
+
+        itemStyle: {
+          color: '#14B8A6',
+          borderRadius: [0, 4, 4, 0]
+        },
+
+        label: {
+          show: true,
+
+          position: 'right',
+
+          formatter(params) {
+            return params.value.toLocaleString()
+          }
+        }
+      }
+    ]
+  }
+}
+
+
+/* ---------------------------------------
+   UPDATE
+--------------------------------------- */
+
+function updateCharts() {
+
+  timelineChart?.setOption(
+    buildTimelineOption(),
     true
   )
 
-  resizeChart()
+  countryChart?.setOption(
+    buildCountryOption(),
+    true
+  )
 }
 
-onMounted(async () => {
-  await nextTick()
-  myChart = echarts.init(chartEl.value)
-  if (countryYearEl.value) {
-    countryYearChart = echarts.init(countryYearEl.value)
-  }
-  if (!store.geojson && !store.loadingGeojson) {
-    await store.loadGeojson()
-  }
-  updateChart(store.geojson)
-  forceResizeChart()
-  window.addEventListener('resize', resizeChart)
-})
+
+function resizeCharts() {
+  timelineChart?.resize()
+  countryChart?.resize()
+}
+
+
+function forceResizeCharts() {
+
+  requestAnimationFrame(() => {
+
+    requestAnimationFrame(() => {
+
+      updateCharts()
+      resizeCharts()
+
+    })
+
+  })
+}
+
+
+/* ---------------------------------------
+   WATCH
+--------------------------------------- */
 
 watch(
-  () => [store.geojson, store.country, store.branch, store.year],
-  () => {
-    updateChart(store.geojson)
-    if (props.active) {
-      forceResizeChart()
+  () => props.active,
+
+  active => {
+
+    if (active) {
+      forceResizeCharts()
     }
-  },
-  { immediate: true, deep: true }
+
+  }
 )
 
-onUnmounted(() => {
-  window.removeEventListener('resize', resizeChart)
-  countryYearChart?.dispose()
-  myChart?.dispose()
 
-  countryYearChart = null
-  myChart = null
+watch(
+  [
+    () => store.geojson,
+    () => store.country,
+    () => store.branch,
+    () => store.year
+  ],
+
+  async () => {
+
+    await nextTick()
+
+    updateCharts()
+
+    if (props.active) {
+      resizeCharts()
+    }
+
+  }
+)
+
+
+/* ---------------------------------------
+   MOUNT
+--------------------------------------- */
+
+onMounted(async () => {
+
+  await nextTick()
+
+
+  if (
+    !store.geojson &&
+    !store.loadingGeojson
+  ) {
+    await store.loadGeojson()
+  }
+
+
+  if (timelineEl.value) {
+
+    timelineChart =
+      echarts.init(
+        timelineEl.value
+      )
+
+  }
+
+
+  if (countryEl.value) {
+
+    countryChart =
+      echarts.init(
+        countryEl.value
+      )
+
+  }
+
+
+  updateCharts()
+
+  window.addEventListener(
+    'resize',
+    resizeCharts
+  )
+})
+
+
+onUnmounted(() => {
+
+  window.removeEventListener(
+    'resize',
+    resizeCharts
+  )
+
+  timelineChart?.dispose()
+  countryChart?.dispose()
+
+  timelineChart = null
+  countryChart = null
 })
 
 </script>
 
+
 <style scoped>
+
 .statistics {
   width: 100%;
 }
 
+
 .chart {
   width: 100%;
-  height: 400px;
+  height: 330px;
 }
+
+
+.country-chart {
+  height: 480px;
+}
+
+
+.chart-title {
+  margin-top: 28px;
+}
+
 
 .brackets {
   font-size: 14px;
   color: #666;
 }
+
 </style>

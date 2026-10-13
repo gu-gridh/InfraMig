@@ -196,7 +196,8 @@ const timelineData = computed(() => {
 
   for (let year = 2023; year <= 2025; year++) {
     for (let month = 0; month < 12; month++) {
-      const current = new Date(year, month, 1)
+      const monthStart = new Date(year, month, 1)
+      const monthEnd = new Date(year, month + 1, 0, 23, 59, 59)
 
       const label =
         `${year}-${String(month + 1).padStart(2, '0')}`
@@ -217,7 +218,7 @@ const timelineData = computed(() => {
           continue
         }
 
-        if (start <= current && end >= current) {
+        if (start <= monthEnd && end >= monthStart) {
           const workerId =
             String(worker.worker_id ?? '').trim()
 
