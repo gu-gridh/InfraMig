@@ -216,108 +216,64 @@ const timelineData = computed(() => {
 --------------------------------------- */
 
 const countryData = computed(() => {
-
   const selectedYear = store.year
     ? Number(store.year)
     : null
 
-  const yearStart = selectedYear
+  const periodStart = selectedYear
     ? new Date(selectedYear, 0, 1)
     : new Date(2023, 0, 1)
 
-  const yearEnd = selectedYear
-    ? new Date(
-        selectedYear,
-        11,
-        31,
-        23,
-        59,
-        59
-      )
-    : new Date(
-        2025,
-        11,
-        31,
-        23,
-        59,
-        59
-      )
-
-
-  /*
-   Map:
-
-   country →
-   Set(worker_id)
-  */
+  const periodEnd = selectedYear
+    ? new Date(selectedYear, 11, 31, 23, 59, 59)
+    : new Date(2025, 11, 31, 23, 59, 59)
 
   const countries = new Map()
 
-
   for (const feature of baseFeatures.value) {
+    const worker = feature.properties || {}
 
-    const worker =
-      feature.properties || {}
-
-    const start =
-      parseDate(worker.startdate)
+    const start = parseDate(worker.startdate)
 
     const end =
       parseDate(worker.enddate) ||
-      yearEnd
+      periodEnd
 
     if (!start || !end) continue
 
-
-    /*
-     Worker must overlap selected period.
-    */
-
+    // Contract does not overlap selected period
     if (
-      start > yearEnd ||
-      end < yearStart
+      start > periodEnd ||
+      end < periodStart
     ) {
       continue
     }
-
 
     const country =
       worker.country_en ||
       worker.country_code ||
       'Unknown'
 
-
     const workerId =
-      String(
-        worker.worker_id ?? ''
-      ).trim()
+      String(worker.worker_id ?? '').trim()
 
     if (!workerId) continue
 
-
     if (!countries.has(country)) {
-      countries.set(
-        country,
-        new Set()
-      )
+      countries.set(country, new Set())
     }
-
 
     countries
       .get(country)
       .add(workerId)
   }
 
-
   return [...countries.entries()]
     .map(([country, workerIds]) => ({
       country,
       workers: workerIds.size
     }))
-    .sort(
-      (a, b) =>
-        b.workers - a.workers
-    )
+    .sort((a, b) => b.workers - a.workers)
 })
 
 
