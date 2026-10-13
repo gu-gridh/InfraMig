@@ -31,7 +31,7 @@
           color="primary"
         />
       </div>
-
+      </div>
       <div class="filter-group">
         <v-select
           v-model="selectedYear"
@@ -43,7 +43,7 @@
           density="compact"
         />
       </div>
-      </div>
+      
     </v-form>
 
     <div class="expand">
