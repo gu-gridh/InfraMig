@@ -231,16 +231,6 @@ const DURATION_COLORS = [
 
 function getDurationColor(days) {
   if (days == null || Number.isNaN(days)) return '#999'
-
-  if (store.year) {
-    if (days < 50) return '#5e4fa2'
-    if (days < 100) return '#3288bd'
-    if (days < 150) return '#66c2a5'
-    if (days < 200) return '#91cf60'
-    if (days < 250) return '#d9ef8b'
-    if (days < 300) return '#fee08b'
-    return '#d73027' // 300–365
-  }
     if (days < 50) return '#5e4fa2'
     if (days < 100) return '#3288bd'
     if (days < 150) return '#66c2a5'
@@ -251,56 +241,53 @@ function getDurationColor(days) {
     return '#d73027'
   }
 
-function renderDurationLegend(min, max) {
+function renderDurationLegend() {
   durationLegend.value?.remove()
 
-  const ranges = store.year
-    ? [
-        [1, 50],
-        [50, 100],
-        [100, 150],
-        [150, 200],
-        [200, 250],
-        [250, 300],
-        [300, 365],
-      ]
-    : [
-        [1, 50],
-        [50, 100],
-        [100, 150],
-        [150, 200],
-        [200, 300],
-        [300, 500],
-        [500, 1000],
-        [1000, 1500],
-      ]
+  const ranges = [
+    { from: 0, to: 50, label: '0–49' },
+    { from: 50, to: 100, label: '50–99' },
+    { from: 100, to: 150, label: '100–149' },
+    { from: 150, to: 200, label: '150–199' },
+    { from: 200, to: 300, label: '200–299' },
+    { from: 300, to: 500, label: '300–499' },
+    { from: 500, to: 1000, label: '500–999' },
+    { from: 1000, to: Infinity, label: '1000+' }
+  ]
 
-  durationLegend.value = L.control({ position: 'bottomleft' })
+  durationLegend.value = L.control({
+    position: 'bottomleft'
+  })
 
   durationLegend.value.onAdd = () => {
     const div = L.DomUtil.create('div', 'duration-legend')
 
     div.innerHTML = `
       <div class="legend-title">
-        Average stay (days) ${store.year ?? '2023–2025'}
+        Average registered contract duration (days)
+        <br>
+        ${store.year ?? '2023–2025'}
       </div>
 
-      ${ranges.map(([from, to]) => {
-        const mid = (from + to) / 2
+      ${ranges.map(range => {
+        const days = range.from
+
         return `
           <div class="legend-row">
             <span
               class="legend-point"
-              style="background:${getDurationColor(mid, min, max)}"
+              style="background:${getDurationColor(days)}"
             ></span>
 
-            <span>${from}–${Math.round(to)}</span>
+            <span>${range.label}</span>
           </div>
         `
       }).join('')}
     `
+
     return div
   }
+
   durationLegend.value.addTo(map.value)
 }
 
@@ -613,12 +600,12 @@ function renderCountries(countryLookup) {
         const count = filteredCountryCounts.get(key) || 1
         const avgDays = durationLookup.get(key) ?? null
 
-         layer.bindPopup(`
+        layer.bindPopup(`
           <strong>${country}</strong><br>
-          Workers: ${count}<br>
-          Average${store.year ? ` (${store.year})` : ''}: ${
+          Workers: ${count.toLocaleString()}<br>
+          Average contract duration${store.year ? ` (${store.year})` : ''}: ${
             avgDays != null
-              ? Math.round(avgDays) + ' days'
+              ? Math.round(avgDays).toLocaleString() + ' days'
               : 'N/A'
           }
         `)
