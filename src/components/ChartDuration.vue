@@ -2,9 +2,16 @@
   <div class="statistics">
 
     <h3>
-      Duration of stay
-      <span v-if="store.year">({{ store.year }})</span><span v-else>2023-2025</span>
-      <span v-if="store.branch" class="brackets"> ({{ store.branchFullName }})</span><span v-else class="brackets"> (all industries)</span>
+      Registered contract duration
+      <span v-if="store.year">({{ store.year }})</span>
+      <span v-else>2023–2025</span>
+
+      <span v-if="store.branch" class="brackets">
+        ({{ store.branchFullName }})
+      </span>
+      <span v-else class="brackets">
+        (all industries)
+      </span>
     </h3>
     <div ref="histogramEl" class="chart"></div>
     <h3 class="chart-title">Activity of work 2023-2025</h3>
@@ -31,7 +38,8 @@ const bins = [
   { label: '6-12', min: 6, max: 12 },
   { label: '12-18', min: 12, max: 18 },
   { label: '18-24', min: 18, max: 24 },
-  { label: '24+', min: 24, max: Infinity }
+  { label: '24+', min: 24, max: 36 },
+  { label: '36+', min: 36, max: Infinity }
 ]
 
 const DAY = 1000 * 60 * 60 * 24
@@ -124,34 +132,33 @@ const workerDurations = computed(() => {
   for (const feature of features) {
     const worker = feature.properties || {}
 
+    // Apply country and industry filters
     if (!matchesBaseFilters(worker)) continue
 
     const workerId = String(worker.worker_id ?? '').trim()
 
-    if (!workerId || !worker.startdate) continue
+    if (!workerId || !worker.startdate || !worker.enddate) {
+      continue
+    }
 
-    let start = new Date(worker.startdate)
-
-    let end = worker.enddate
-      ? new Date(worker.enddate)
-      : periodEnd
+    const start = new Date(worker.startdate)
+    const end = new Date(worker.enddate)
 
     if (
       Number.isNaN(start.getTime()) ||
-      Number.isNaN(end.getTime())
+      Number.isNaN(end.getTime()) ||
+      start > end
     ) {
       continue
     }
 
-    // No overlap with selected period
-    if (start > periodEnd || end < periodStart) {
+    // Only include contracts overlapping selected period
+    if (
+      start > periodEnd ||
+      end < periodStart
+    ) {
       continue
     }
-
-    // Clip contract to selected period
-    if (start < periodStart) start = new Date(periodStart)
-    if (end > periodEnd) end = new Date(periodEnd)
-
     if (!workers.has(workerId)) {
       workers.set(workerId, [])
     }
