@@ -1,6 +1,6 @@
 <template>
   <div class="statistics">
-    <h3>Average stay by country <span v-if="store.year">({{ store.year }})</span><span v-else>2023-2025</span><span v-if="store.branch" class="brackets"> ({{ store.branchFullName }})</span><span v-else class="brackets"> (all industries)</span></h3>
+    <h3>Average registered contract duration by country <span v-if="store.year">({{ store.year }})</span><span v-else>2023-2025</span><span v-if="store.branch" class="brackets"> ({{ store.branchFullName }})</span><span v-else class="brackets"> (all industries)</span></h3>
     <div ref="chartEl" class="chart"></div>
   </div>
 </template>
@@ -161,14 +161,12 @@ const chartData = computed(() => {
 
     if (!workerId) continue
 
-    let start =
-      parseDate(worker.startdate)
+    const start = parseDate(worker.startdate)
+    const end = parseDate(worker.enddate)
 
-    let end =
-      parseDate(worker.enddate) ||
-      periodEnd
-
-    if (!start || !end) continue
+    if (!start || !end || start > end) {
+      continue
+    }
 
     // No overlap with selected period
     if (
@@ -176,15 +174,6 @@ const chartData = computed(() => {
       end < periodStart
     ) {
       continue
-    }
-
-    // Clip to selected period
-    if (start < periodStart) {
-      start = new Date(periodStart)
-    }
-
-    if (end > periodEnd) {
-      end = new Date(periodEnd)
     }
 
     const country =
@@ -270,13 +259,25 @@ const option = computed(() => ({
 
     return `
       <strong>${row.country}</strong><br>
-      Average stay: ${Math.round(row.avgDuration)} days<br>
+      Average contract duration: ${Math.round(row.avgDuration).toLocaleString()} days<br>
       Unique workers: ${row.workers.toLocaleString()}
-    `
+      `
   }
 },
-  grid: { left: 0, right: 20, top: 50, bottom: 40 },
-  xAxis: { type: 'value', name: 'Days' },
+  grid: {
+    left: 110,
+    right: 75,
+    top: 30,
+    bottom: 40
+  },
+  xAxis: {
+    type: 'value',
+    name: 'Days',
+    nameLocation: 'end',
+    axisLabel: {
+      formatter: value => value.toLocaleString()
+    }
+  },
   yAxis: {
     type: 'category',
     inverse: true,
@@ -293,7 +294,8 @@ const option = computed(() => ({
       label: {
         show: true,
         position: 'right',
-        formatter: value => Math.round(value.value)
+        formatter: params =>
+          Math.round(params.value).toLocaleString()
       },
       
     },

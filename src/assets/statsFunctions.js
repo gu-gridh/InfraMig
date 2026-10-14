@@ -137,3 +137,102 @@ export function getUniqueWorkers(features = []) {
   return [...workers.values()]
 }
 
+export function calculateCountryContractDurations(features = []) {
+  const DAY = 1000 * 60 * 60 * 24
+
+  const countries = new Map()
+
+  function parseDate(value) {
+    if (!value) return null
+
+    const date = new Date(value)
+
+    return Number.isNaN(date.getTime()) ? null : date
+  }
+
+  function mergeIntervals(intervals) {
+    if (!intervals.length) return []
+
+    const sorted = [...intervals].sort((a, b) => a[0] - b[0])
+    const merged = [[...sorted[0]]]
+
+    for (const [start, end] of sorted.slice(1)) {
+      const last = merged[merged.length - 1]
+
+      const nextDay = new Date(last[1])
+      nextDay.setDate(nextDay.getDate() + 1)
+
+      if (start <= nextDay) {
+        last[1] = new Date(Math.max(last[1], end))
+      } else {
+        merged.push([start, end])
+      }
+    }
+
+    return merged
+  }
+
+  // Group contract periods by country and worker_id
+  for (const feature of features) {
+    const props = feature.properties || {}
+
+    const workerId = String(props.worker_id ?? '').trim()
+    const countryCode = String(props.country_code ?? '').trim().toUpperCase()
+
+    const start = parseDate(props.startdate)
+    const end = parseDate(props.enddate)
+
+    if (!workerId || !countryCode || !start || !end || start > end) {
+      continue
+    }
+
+    if (!countries.has(countryCode)) {
+      countries.set(countryCode, {
+        country: props.country_en || countryCode,
+        workers: new Map()
+      })
+    }
+
+    const country = countries.get(countryCode)
+
+    if (!country.workers.has(workerId)) {
+      country.workers.set(workerId, [])
+    }
+
+    country.workers.get(workerId).push([start, end])
+  }
+
+  const results = new Map()
+
+  for (const [countryCode, country] of countries) {
+    const durations = []
+
+    for (const intervals of country.workers.values()) {
+      const merged = mergeIntervals(intervals)
+
+      const days = merged.reduce(
+        (sum, [start, end]) =>
+          sum + Math.round((end - start) / DAY) + 1,
+        0
+      )
+
+      if (days > 0) durations.push(days)
+    }
+
+    if (!durations.length) continue
+
+    const average =
+      durations.reduce((sum, days) => sum + days, 0) /
+      durations.length
+
+    results.set(countryCode, {
+      country: country.country,
+      countryCode,
+      workers: durations.length,
+      avgDuration: average
+    })
+  }
+
+  return results
+}
+
