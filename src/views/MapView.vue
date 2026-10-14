@@ -27,8 +27,7 @@ import * as L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import Filters from '@/components/Filters.vue'
 import { useStore } from '@/stores/company'
-import * as statsFunctions from '@/assets/statsFunctions.js'
-import { getCountryDurationAverages, branchFullNames } from '@/assets/statsFunctions.js'
+import { getCountryDurationAverages, branchFullNames, calculateCountryContractDurations } from '@/assets/statsFunctions.js'
 import { useRouter } from 'vue-router'
 
 const router = useRouter()
@@ -525,20 +524,17 @@ function renderCountries(countryLookup) {
         sizeLegend.value = null
       }
 
-  const durationData = getCountryDurationAverages({
-    ...pointsData,
-    features
-  }, store.year ? `avg${store.year}` : 'duration_avg')
+  const durationData = calculateCountryContractDurations(features)
 
   const durationLookup = new Map()
-  for (const row of durationData) {
+  for (const [countryCode, row] of durationData) {
     const key =
-      cleanCode(row.countryCode) ||
+      cleanCode(countryCode) ||
       normalizeName(row.country)
-      durationLookup.set(key, row.avgDuration)
+
+    durationLookup.set(key, row.avgDuration)
   }
-  
-  const durations = durationData.map(d => d.avgDuration)
+  const durations = [...durationData.values()].map(row => row.avgDuration)
   const minDuration = Math.min(...durations)
   const maxDuration = Math.max(...durations)
 
